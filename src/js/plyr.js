@@ -73,6 +73,9 @@
                 container:      null,
                 wrapper:        '.plyr__controls'
             },
+            zoom: {
+                container:      null
+            },
             fullscreen: {
                 container:      null
             },
@@ -86,8 +89,9 @@
                 forward:        '[data-plyr="fast-forward"]',
                 mute:           '[data-plyr="mute"]',
                 captions:       '[data-plyr="captions"]',
-                fullscreen:     '[data-plyr="fullscreen"]',
-                speedup:        '[data-plyr="speed-up"]'
+                speedup:        '[data-plyr="speed-up"]',
+                zoom:           '[data-plyr="zoom"]',
+                fullscreen:     '[data-plyr="fullscreen"]'
             },
             volume: {
                 input:          '[data-plyr="volume"]',
@@ -122,6 +126,10 @@
                 enabled:        'plyr--captions-enabled',
                 active:         'plyr--captions-active'
             },
+            zoom: {
+                enabled:        'plyr--zoom-enabled',
+                active:         'plyr--zoom-active'
+            },
             fullscreen: {
                 enabled:        'plyr--fullscreen-enabled',
                 active:         'plyr--fullscreen-active'
@@ -130,6 +138,9 @@
         },
         captions: {
             defaultActive:      false
+        },
+        zoom: {
+            enabled:            true
         },
         fullscreen: {
             enabled:            true,
@@ -154,6 +165,7 @@
             volume:             'Volume',
             toggleMute:         'Toggle Mute',
             toggleCaptions:     'Toggle Captions',
+            toggleZoom:         'Toggle Zoom',
             toggleFullscreen:   'Toggle Fullscreen',
             frameTitle:         'Player for {title}',
             speedup:            'Speed x{speed}'
@@ -185,8 +197,9 @@
             mute:               null,
             volume:             null,
             captions:           null,
-            fullscreen:         null,
-            speedup:            null
+            speedup:            null,
+            zoom:               null,
+            fullscreen:         null
         },
         // Events to watch on HTML5 media elements
         events:                 ['ready', 'ended', 'progress', 'stalled', 'playing', 'waiting', 'canplay', 'canplaythrough', 'loadstart', 'loadeddata', 'loadedmetadata', 'timeupdate', 'volumechange', 'play', 'pause', 'error', 'seeking', 'emptied'],
@@ -899,6 +912,17 @@
                 );
             }
 
+            // Toggle zoom button
+            if (_inArray(config.controls, 'zoom')) {
+                html.push(
+                    '<button type="button" data-plyr="zoom">',
+                        '<svg class="icon--exit-zoom"><use xlink:href="' + iconPath + '-exit-zoom" /></svg>',
+                        '<svg><use xlink:href="' + iconPath + '-enter-zoom" /></svg>',
+                        '<span class="plyr__sr-only">' + config.i18n.toggleZoom + '</span>',
+                    '</button>'
+                );
+            }
+
             // Toggle fullscreen button
             if (_inArray(config.controls, 'fullscreen')) {
                 html.push(
@@ -914,6 +938,27 @@
             html.push('</div>');
 
             return html.join('');
+        }
+
+        // Setip zoom
+        function _setupZoom() {
+            // Setup specified zoom container from config (default is plyr.container)
+            if (_is.string(config.selectors.zoom.container)) {
+                plyr.zoomContainer = document.querySelector(config.selectors.zoom.container);
+            }
+            if (!_is.htmlElement(plyr.zoomContainer)) {
+                plyr.zoomContainer = plyr.container;
+            }
+
+            if ((plyr.type !== 'audio') && config.zoom.enabled) {
+                // Add zoom styling hook
+                _toggleClass(plyr.zoomContainer, config.classes.zoom.enabled, true);
+
+                // Toggle state
+                if (plyr.buttons && plyr.buttons.zoom) {
+                    _toggleState(plyr.buttons.zoom, false);
+                }
+            }
         }
 
         // Setup fullscreen
@@ -1350,6 +1395,7 @@
                 plyr.buttons.restart          = _getElement(config.selectors.buttons.restart);
                 plyr.buttons.rewind           = _getElement(config.selectors.buttons.rewind);
                 plyr.buttons.forward          = _getElement(config.selectors.buttons.forward);
+                plyr.buttons.zoom             = _getElement(config.selectors.buttons.zoom);
                 plyr.buttons.fullscreen       = _getElement(config.selectors.buttons.fullscreen);
                 plyr.buttons.speedup          = _getElement(config.selectors.buttons.speedup);
 
@@ -2128,6 +2174,22 @@
             window.scrollTo(scroll.x, scroll.y);
         }
 
+        // Toggle zoom
+        function _toggleZoom(event) {
+            plyr.isZoom = !plyr.isZoom;
+
+            // Set class hook
+            _toggleClass(plyr.zoomContainer, config.classes.zoom.active, plyr.isZoom);
+
+            // Bind/unbind escape key
+            document.body.style.overflow = plyr.isZoom ? 'hidden' : '';
+
+            // Set button state
+            if (plyr.buttons && plyr.buttons.zoom) {
+                _toggleState(plyr.buttons.zoom, plyr.isZoom);
+            }
+        }
+
         // Toggle fullscreen
         function _toggleFullscreen(event) {
             // Check for native support
@@ -2819,6 +2881,7 @@
                 }
 
                 // Restore class hooks
+                _toggleClass(plyr.zoomContainer, config.classes.zoom.active, plyr.isZoom);
                 _toggleClass(plyr.fullscreenContainer, config.classes.fullscreen.active, plyr.isFullscreen);
                 _toggleClass(plyr.container, config.classes.captions.active, plyr.captionsEnabled);
                 _toggleStyleHook();
@@ -3030,10 +3093,13 @@
                         case 67: if (!held) { _toggleCaptions(); } break;
                     }
 
-                    // Escape is handle natively when in full screen 
+                    // Escape is handle natively when in full screen or zoom
                     // So we only need to worry about non native
                     if (!fullscreen.supportsFullScreen && plyr.isFullscreen && code === 27) {
                         _toggleFullscreen();
+                    }
+                    if (plyr.isZoom && code === 27) {
+                        _toggleZoom();
                     }
 
                     // Store last code for next cycle
@@ -3091,6 +3157,9 @@
 
             // Mute
             _proxyListener(plyr.buttons.mute, 'click', config.listeners.mute, _toggleMute);
+
+            // Zoom
+            _proxyListener(plyr.buttons.zoom, 'click', config.listeners.zoom, _toggleZoom);
 
             // Fullscreen
             _proxyListener(plyr.buttons.fullscreen, 'click', config.listeners.fullscreen, _toggleFullscreen);
@@ -3455,6 +3524,9 @@
 
             // Remove native controls
             _toggleNativeControls();
+
+            // Setup zoom
+            _setupZoom();
 
             // Setup fullscreen
             _setupFullscreen();
