@@ -3475,9 +3475,11 @@
             // If not null or undefined, parse it
             if (!_is.undefined(source)) {
                 _updateSource(source);
-                _buildCaptionControl();
-                _buildCaptionPositionControl();
-                _buildQualityControl();
+                if(plyr.supported.full) {
+                    _buildCaptionControl();
+                    _buildCaptionPositionControl();
+                    _buildQualityControl();
+                }
                 return;
             }
 
