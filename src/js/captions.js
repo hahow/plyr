@@ -85,8 +85,9 @@ const captions = {
         // * active:    The state preferred by user settings or config
         // * toggled:   The real captions state
 
-        let languageArray = (navigator.languages || navigator.userLanguage || []).map(language => language.split('-')[0]);
-        const languages = dedupe(languageArray);
+        const languages = dedupe(
+            Array.from(navigator.languages || navigator.language || navigator.userLanguage).map(language => language.split('-')[0]),
+        );
 
         let language = (this.storage.get('language') || this.config.captions.language || 'auto').toLowerCase();
 
@@ -199,8 +200,8 @@ const captions = {
                 return;
             }
 
-            // Toggle state
-            if (this.elements.buttons.captions && this.elements.buttons.captions.pressed) {
+            // Toggle button if it's enabled
+            if (this.elements.buttons.captions) {
                 this.elements.buttons.captions.pressed = active;
             }
 

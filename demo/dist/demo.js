@@ -1874,7 +1874,7 @@ typeof navigator === "object" && (function () {
 	  // webpack (using a build step causes webpack #1617). Grunt verifies that
 	  // this value matches package.json during build.
 	  //   See: https://github.com/getsentry/raven-js/issues/465
-	  VERSION: '3.26.2',
+	  VERSION: '3.26.3',
 
 	  debug: false,
 
@@ -2351,7 +2351,9 @@ typeof navigator === "object" && (function () {
 	      return;
 	    }
 
-	    if (this._globalOptions.stacktrace || (options && options.stacktrace)) {
+	    // Always attempt to get stacktrace if message is empty.
+	    // It's the only way to provide any helpful information to the user.
+	    if (this._globalOptions.stacktrace || options.stacktrace || data.message === '') {
 	      // fingerprint on msg, not stack trace (legacy behavior, could be revisited)
 	      data.fingerprint = data.fingerprint == null ? msg : data.fingerprint;
 
@@ -3508,6 +3510,11 @@ typeof navigator === "object" && (function () {
 	      options
 	    );
 
+	    var ex = data.exception.values[0];
+	    if (ex.type == null && ex.value === '') {
+	      ex.value = 'Unrecoverable error caught';
+	    }
+
 	    // Move mechanism from options to exception interface
 	    // We do this, as requiring user to pass `{exception:{mechanism:{ ... }}}` would be
 	    // too much
@@ -4130,60 +4137,7 @@ typeof navigator === "object" && (function () {
 	                tooltips: {
 	                    controls: true
 	                },
-	                logo: {
-	                    url: 'https://hahow.in/assets/images/video/logo-forplayer.png',
-	                    link: 'https://hahow.in/'
-	                },
-	                /* controls: [
-	                    'play-large',
-	                    'restart',
-	                    'rewind',
-	                    'play',
-	                    'fast-forward',
-	                    'progress',
-	                    'current-time',
-	                    'duration',
-	                    'mute',
-	                    'volume',
-	                    'captions',
-	                    'settings',
-	                    'pip',
-	                    'airplay',
-	                    'fullscreen',
-	                ], */
-	                /* i18n: {
-	                    restart: '重新開始',
-	                    rewind: '快退{seektime}秒',
-	                    play: '播放',
-	                    pause: '暫停',
-	                    fastForward: '快進{seektime}秒',
-	                    seek: '尋求',
-	                    played: '發揮',
-	                    buffered: '緩衝的',
-	                    currentTime: '當前時間戳',
-	                    duration: '長短',
-	                    volume: '音量',
-	                    mute: '靜音',
-	                    unmute: '取消靜音',
-	                    enableCaptions: '開啟字幕',
-	                    disableCaptions: '關閉字幕',
-	                    enterFullscreen: '進入全螢幕',
-	                    exitFullscreen: '退出全螢幕',
-	                    frameTitle: '球員為{title}',
-	                    captions: '字幕',
-	                    settings: '設定',
-	                    speed: '速度',
-	                    normal: '正常',
-	                    quality: '質量',
-	                    loop: '循環',
-	                    start: 'Start',
-	                    end: 'End',
-	                    all: 'All',
-	                    reset: '重啟',
-	                    disabled: '殘',
-	                    enabled: '啟用',
-	                    advertisement: '廣告',
-	                }, */
+	                clickToPlay: false,
 	                captions: {
 	                    active: true
 	                },

@@ -5397,60 +5397,92 @@ typeof navigator === "object" && (function (global, factory) {
 	var getConstructor = function getConstructor(input) {
 	    return input !== null && typeof input !== 'undefined' ? input.constructor : null;
 	};
-
 	var instanceOf = function instanceOf(input, constructor) {
 	    return Boolean(input && constructor && input instanceof constructor);
 	};
+	var isNullOrUndefined = function isNullOrUndefined(input) {
+	    return input === null || typeof input === 'undefined';
+	};
+	var isObject = function isObject(input) {
+	    return getConstructor(input) === Object;
+	};
+	var isNumber = function isNumber(input) {
+	    return getConstructor(input) === Number && !Number.isNaN(input);
+	};
+	var isString = function isString(input) {
+	    return getConstructor(input) === String;
+	};
+	var isBoolean = function isBoolean(input) {
+	    return getConstructor(input) === Boolean;
+	};
+	var isFunction = function isFunction(input) {
+	    return getConstructor(input) === Function;
+	};
+	var isArray = function isArray(input) {
+	    return Array.isArray(input);
+	};
+	var isWeakMap = function isWeakMap(input) {
+	    return instanceOf(input, WeakMap);
+	};
+	var isNodeList = function isNodeList(input) {
+	    return instanceOf(input, NodeList);
+	};
+	var isElement = function isElement(input) {
+	    return instanceOf(input, Element);
+	};
+	var isTextNode = function isTextNode(input) {
+	    return getConstructor(input) === Text;
+	};
+	var isEvent = function isEvent(input) {
+	    return instanceOf(input, Event);
+	};
+	var isCue = function isCue(input) {
+	    return instanceOf(input, window.TextTrackCue) || instanceOf(input, window.VTTCue);
+	};
+	var isTrack = function isTrack(input) {
+	    return instanceOf(input, TextTrack) || !isNullOrUndefined(input) && isString(input.kind);
+	};
+
+	var isEmpty = function isEmpty(input) {
+	    return isNullOrUndefined(input) || (isString(input) || isArray(input) || isNodeList(input)) && !input.length || isObject(input) && !Object.keys(input).length;
+	};
+
+	var isUrl = function isUrl(input) {
+	    // Accept a URL object
+	    if (instanceOf(input, window.URL)) {
+	        return true;
+	    }
+
+	    // Add the protocol if required
+	    var string = input;
+	    if (!input.startsWith('http://') || !input.startsWith('https://')) {
+	        string = 'http://' + input;
+	    }
+
+	    try {
+	        return !isEmpty(new URL(string).hostname);
+	    } catch (e) {
+	        return false;
+	    }
+	};
 
 	var is$1 = {
-	    object: function object(input) {
-	        return getConstructor(input) === Object;
-	    },
-	    number: function number(input) {
-	        return getConstructor(input) === Number && !Number.isNaN(input);
-	    },
-	    string: function string(input) {
-	        return getConstructor(input) === String;
-	    },
-	    boolean: function boolean(input) {
-	        return getConstructor(input) === Boolean;
-	    },
-	    function: function _function(input) {
-	        return getConstructor(input) === Function;
-	    },
-	    array: function array(input) {
-	        return !is$1.nullOrUndefined(input) && Array.isArray(input);
-	    },
-	    weakMap: function weakMap(input) {
-	        return instanceOf(input, WeakMap);
-	    },
-	    nodeList: function nodeList(input) {
-	        return instanceOf(input, NodeList);
-	    },
-	    element: function element(input) {
-	        return instanceOf(input, Element);
-	    },
-	    textNode: function textNode(input) {
-	        return getConstructor(input) === Text;
-	    },
-	    event: function event(input) {
-	        return instanceOf(input, Event);
-	    },
-	    cue: function cue(input) {
-	        return instanceOf(input, window.TextTrackCue) || instanceOf(input, window.VTTCue);
-	    },
-	    track: function track(input) {
-	        return instanceOf(input, TextTrack) || !is$1.nullOrUndefined(input) && is$1.string(input.kind);
-	    },
-	    url: function url(input) {
-	        return !is$1.nullOrUndefined(input) && /(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-/]))?/.test(input);
-	    },
-	    nullOrUndefined: function nullOrUndefined(input) {
-	        return input === null || typeof input === 'undefined';
-	    },
-	    empty: function empty(input) {
-	        return is$1.nullOrUndefined(input) || (is$1.string(input) || is$1.array(input) || is$1.nodeList(input)) && !input.length || is$1.object(input) && !Object.keys(input).length;
-	    }
+	    nullOrUndefined: isNullOrUndefined,
+	    object: isObject,
+	    number: isNumber,
+	    string: isString,
+	    boolean: isBoolean,
+	    function: isFunction,
+	    array: isArray,
+	    weakMap: isWeakMap,
+	    nodeList: isNodeList,
+	    element: isElement,
+	    textNode: isTextNode,
+	    event: isEvent,
+	    cue: isCue,
+	    track: isTrack,
+	    url: isUrl,
+	    empty: isEmpty
 	};
 
 	// ==========================================================================
@@ -6864,7 +6896,7 @@ typeof navigator === "object" && (function (global, factory) {
 	        }
 
 	        if ('class' in attributes) {
-	            if (attributes.class.includes(this.config.classNames.control)) {
+	            if (!attributes.class.includes(this.config.classNames.control)) {
 	                attributes.class += ' ' + this.config.classNames.control;
 	            }
 	        } else {
@@ -7318,6 +7350,16 @@ typeof navigator === "object" && (function (global, factory) {
 	    durationUpdate: function durationUpdate() {
 	        // Bail if no UI or durationchange event triggered after playing/seek when invertTime is false
 	        if (!this.supported.ui || !this.config.invertTime && this.currentTime) {
+	            return;
+	        }
+
+	        // If duration is the 2**32 (shaka), Infinity (HLS), DASH-IF (Number.MAX_SAFE_INTEGER || Number.MAX_VALUE) indicating live we hide the currentTime and progressbar.
+	        // https://github.com/video-dev/hls.js/blob/5820d29d3c4c8a46e8b75f1e3afa3e68c1a9a2db/src/controller/buffer-controller.js#L415
+	        // https://github.com/google/shaka-player/blob/4d889054631f4e1cf0fbd80ddd2b71887c02e232/lib/media/streaming_engine.js#L1062
+	        // https://github.com/Dash-Industry-Forum/dash.js/blob/69859f51b969645b234666800d4cb596d89c602d/src/dash/models/DashManifestModel.js#L338
+	        if (this.duration >= Math.pow(2, 32)) {
+	            toggleHidden(this.elements.display.currentTime, true);
+	            toggleHidden(this.elements.progress, true);
 	            return;
 	        }
 
@@ -8319,10 +8361,9 @@ typeof navigator === "object" && (function (global, factory) {
 	        // * active:    The state preferred by user settings or config
 	        // * toggled:   The real captions state
 
-	        var languageArray = (navigator.languages || navigator.userLanguage || []).map(function (language) {
+	        var languages = dedupe(Array.from(navigator.languages || navigator.language || navigator.userLanguage).map(function (language) {
 	            return language.split('-')[0];
-	        });
-	        var languages = dedupe(languageArray);
+	        }));
 
 	        var language = (this.storage.get('language') || this.config.captions.language || 'auto').toLowerCase();
 
@@ -8455,8 +8496,8 @@ typeof navigator === "object" && (function (global, factory) {
 	                return;
 	            }
 
-	            // Toggle state
-	            if (this.elements.buttons.captions && this.elements.buttons.captions.pressed) {
+	            // Toggle button if it's enabled
+	            if (this.elements.buttons.captions) {
 	                this.elements.buttons.captions.pressed = active;
 	            }
 
@@ -10191,9 +10232,11 @@ typeof navigator === "object" && (function (global, factory) {
 	            };
 
 	            // Play/pause toggle
-	            Array.from(this.player.elements.buttons.play).forEach(function (button) {
-	                bind(button, 'click', _this4.player.togglePlay, 'play');
-	            });
+	            if (this.player.elements.buttons.play) {
+	                Array.from(this.player.elements.buttons.play).forEach(function (button) {
+	                    bind(button, 'click', _this4.player.togglePlay, 'play');
+	                });
+	            }
 
 	            // Pause
 	            bind(this.player.elements.buttons.restart, 'click', this.player.restart, 'restart');
@@ -10398,33 +10441,28 @@ typeof navigator === "object" && (function (global, factory) {
 	                // Detect "natural" scroll - suppored on OS X Safari only
 	                // Other browsers on OS X will be inverted until support improves
 	                var inverted = event.webkitDirectionInvertedFromDevice;
-	                var step = 1 / 50;
-	                var direction = 0;
 
-	                // Scroll down (or up on natural) to decrease
-	                if (event.deltaY < 0 || event.deltaX > 0) {
-	                    if (inverted) {
-	                        _this4.player.decreaseVolume(step);
-	                        direction = -1;
-	                    } else {
-	                        _this4.player.increaseVolume(step);
-	                        direction = 1;
-	                    }
-	                }
+	                // Get delta from event. Invert if `inverted` is true
 
-	                // Scroll up (or down on natural) to increase
-	                if (event.deltaY > 0 || event.deltaX < 0) {
-	                    if (inverted) {
-	                        _this4.player.increaseVolume(step);
-	                        direction = 1;
-	                    } else {
-	                        _this4.player.decreaseVolume(step);
-	                        direction = -1;
-	                    }
-	                }
+	                var _map = [event.deltaX, -event.deltaY].map(function (value) {
+	                    return inverted ? -value : value;
+	                }),
+	                    _map2 = slicedToArray(_map, 2),
+	                    x = _map2[0],
+	                    y = _map2[1];
+
+	                // Using the biggest delta, normalize to 1 or -1 (or 0 if no delta)
+
+
+	                var direction = Math.sign(Math.abs(x) > Math.abs(y) ? x : y);
+
+	                // Change the volume by 2%
+	                _this4.player.increaseVolume(direction / 50);
 
 	                // Don't break page scrolling at max and min
-	                if (direction === 1 && _this4.player.media.volume < 1 || direction === -1 && _this4.player.media.volume > 0) {
+	                var volume = _this4.player.media.volume;
+
+	                if (direction === 1 && volume < 1 || direction === -1 && volume > 0) {
 	                    event.preventDefault();
 	                }
 	            }, 'volume', false);
@@ -12357,7 +12395,7 @@ typeof navigator === "object" && (function (global, factory) {
 	    }, {
 	        key: 'enabled',
 	        get: function get() {
-	            return this.player.isVideo && this.player.config.ads.enabled && !is$1.empty(this.publisherId);
+	            return this.player.isHTML5 && this.player.isVideo && this.player.config.ads.enabled && !is$1.empty(this.publisherId);
 	        }
 	    }, {
 	        key: 'tagUrl',
@@ -12365,7 +12403,7 @@ typeof navigator === "object" && (function (global, factory) {
 	            var params = {
 	                AV_PUBLISHERID: '58c25bb0073ef448b1087ad6',
 	                AV_CHANNELID: '5a0458dc28a06145e4519d21',
-	                AV_URL: location.hostname,
+	                AV_URL: window.location.hostname,
 	                cb: Date.now(),
 	                AV_WIDTH: 640,
 	                AV_HEIGHT: 480,
@@ -13385,7 +13423,7 @@ typeof navigator === "object" && (function (global, factory) {
 	         */
 	        value: function increaseVolume(step) {
 	            var volume = this.media.muted ? 0 : this.volume;
-	            this.volume = volume + (is$1.number(step) ? step : 1);
+	            this.volume = volume + (is$1.number(step) ? step : 0);
 	        }
 
 	        /**
@@ -13396,8 +13434,7 @@ typeof navigator === "object" && (function (global, factory) {
 	    }, {
 	        key: 'decreaseVolume',
 	        value: function decreaseVolume(step) {
-	            var volume = this.media.muted ? 0 : this.volume;
-	            this.volume = volume - (is$1.number(step) ? step : 1);
+	            this.increaseVolume(-step);
 	        }
 	    }, {
 	        key: 'toggleCaptions',
@@ -13475,6 +13512,7 @@ typeof navigator === "object" && (function (global, factory) {
 	        value: function on$$1(event, callback) {
 	            on.call(this, this.elements.container, event, callback);
 	        }
+
 	        /**
 	         * Add event listeners once
 	         * @param {string} event - Event type
@@ -13486,6 +13524,7 @@ typeof navigator === "object" && (function (global, factory) {
 	        value: function once$$1(event, callback) {
 	            once.call(this, this.elements.container, event, callback);
 	        }
+
 	        /**
 	         * Remove event listeners
 	         * @param {string} event - Event type
@@ -13761,8 +13800,9 @@ typeof navigator === "object" && (function (global, factory) {
 	            // Faux duration set via config
 	            var fauxDuration = parseFloat(this.config.duration);
 
-	            // Media duration can be NaN before the media has loaded
-	            var duration = (this.media || {}).duration || 0;
+	            // Media duration can be NaN or Infinity before the media has loaded
+	            var realDuration = (this.media || {}).duration;
+	            var duration = !is$1.number(realDuration) || realDuration === Infinity ? 0 : realDuration;
 
 	            // If config duration is funky, use regular duration
 	            return fauxDuration || duration;
