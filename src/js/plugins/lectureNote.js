@@ -86,21 +86,25 @@ export default class LectureNote {
     }
 
     setupUI () {
-        const lectureNoteContainer = this.getContainer();
-        for (let i = 0; i < this.lectureNoteList.length; i += 1) {
-            const note = this.lectureNoteList[i];
-            if (!this.isLectureNoteExists(note._id)) {
-                const lectureNoteDOM = this.generateLectureNoteDOM(note);
-                lectureNoteContainer.appendChild(lectureNoteDOM);
+        if (this.player.supported.ui) {
+            const lectureNoteContainer = this.getContainer();
+            for (let i = 0; i < this.lectureNoteList.length; i += 1) {
+                const note = this.lectureNoteList[i];
+                if (!this.isLectureNoteExists(note._id)) {
+                    const lectureNoteDOM = this.generateLectureNoteDOM(note);
+                    lectureNoteContainer.appendChild(lectureNoteDOM);
+                }
             }
         }
     }
 
     initLectureNote (lectureNotes) {
-        this.lectureNoteList = lectureNotes;
-        this.isLoadedLectureNote = true;
-        this.setupUI();
-        this.enableLectureNote();
+        if (this.player.supported.ui) {
+            this.lectureNoteList = lectureNotes;
+            this.isLoadedLectureNote = true;
+            this.setupUI();
+            this.enableLectureNote();
+        }
     }
 
     addLectureNote () {
@@ -108,12 +112,12 @@ export default class LectureNote {
         const note = this.getSameTimeLectureNote(time);
         if (note) {
 
-            const lectureNoteContainer = getElement.call(this.player, '.lecture-note[data-id="' + note._id + '"]');
+            const lectureNoteContainer = getElement.call(this.player, `.lecture-note[data-id="${  note._id  }"]`);
             if (lectureNoteContainer) {
                 const contentContianer = lectureNoteContainer.querySelector('lecture-note__content-container ');
                 if (contentContianer) {
                     const clickEvent = new Event('click');
-                    contentContianer.dispatchEvent(clickEvent)
+                    contentContianer.dispatchEvent(clickEvent);
                 }
             }
 
@@ -182,7 +186,9 @@ export default class LectureNote {
                 'class': 'plyr__lecture-note-container',
             });
             const progresses = getElement.call(this.player, this.player.config.selectors.progress);
-            progresses.appendChild(this.lectureNoteContainer);
+            if (progresses) {
+                progresses.appendChild(this.lectureNoteContainer);
+            }
         }
         return this.lectureNoteContainer;
     }
@@ -310,7 +316,7 @@ export default class LectureNote {
                     toggleClass(lectureNoteContainer, 'hover', false);
                 }, 1000);
                 triggerEvent.call(this.player, this.player.media, 'lecturenoteupdate', true, {
-                    lectureNote: lectureNote,
+                    lectureNote,
                 });
                 try{
                     this.player.play();
@@ -336,7 +342,7 @@ export default class LectureNote {
                 toggleClass(lectureNoteContainer, 'hover', false);
             }, 1000);
             triggerEvent.call(this.player, this.player.media, 'lecturenoteupdate', true, {
-                lectureNote: lectureNote,
+                lectureNote,
             });
             e.preventDefault();
         });
