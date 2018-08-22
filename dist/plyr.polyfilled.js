@@ -12969,22 +12969,26 @@ typeof navigator === "object" && (function (global, factory) {
 	    }, {
 	        key: 'setupUI',
 	        value: function setupUI() {
-	            var lectureNoteContainer = this.getContainer();
-	            for (var i = 0; i < this.lectureNoteList.length; i += 1) {
-	                var note = this.lectureNoteList[i];
-	                if (!this.isLectureNoteExists(note._id)) {
-	                    var lectureNoteDOM = this.generateLectureNoteDOM(note);
-	                    lectureNoteContainer.appendChild(lectureNoteDOM);
+	            if (this.player.supported.ui) {
+	                var lectureNoteContainer = this.getContainer();
+	                for (var i = 0; i < this.lectureNoteList.length; i += 1) {
+	                    var note = this.lectureNoteList[i];
+	                    if (!this.isLectureNoteExists(note._id)) {
+	                        var lectureNoteDOM = this.generateLectureNoteDOM(note);
+	                        lectureNoteContainer.appendChild(lectureNoteDOM);
+	                    }
 	                }
 	            }
 	        }
 	    }, {
 	        key: 'initLectureNote',
 	        value: function initLectureNote(lectureNotes) {
-	            this.lectureNoteList = lectureNotes;
-	            this.isLoadedLectureNote = true;
-	            this.setupUI();
-	            this.enableLectureNote();
+	            if (this.player.supported.ui) {
+	                this.lectureNoteList = lectureNotes;
+	                this.isLoadedLectureNote = true;
+	                this.setupUI();
+	                this.enableLectureNote();
+	            }
 	        }
 	    }, {
 	        key: 'addLectureNote',
@@ -13073,7 +13077,9 @@ typeof navigator === "object" && (function (global, factory) {
 	                    'class': 'plyr__lecture-note-container'
 	                });
 	                var progresses = getElement.call(this.player, this.player.config.selectors.progress);
-	                progresses.appendChild(this.lectureNoteContainer);
+	                if (progresses) {
+	                    progresses.appendChild(this.lectureNoteContainer);
+	                }
 	            }
 	            return this.lectureNoteContainer;
 	        }

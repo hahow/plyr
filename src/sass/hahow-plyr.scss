@@ -156,7 +156,8 @@ $plyr-font-size-captions-small: 24px;
 // Lecture Note Feature !!!!!
 
 // 修正 progress bar 超過邊界
-.plyr__progress input[type=range] {
+.plyr__progress input[type=range],
+.plyr__progress__buffer {
     width: 100%;
 }
 
