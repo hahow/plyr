@@ -34,6 +34,7 @@ export default class LectureNote {
         this.lectureNoteList = [];
         this.lectureNoteContainer = null;
         this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Hidden;
+        this.isLoadedLectureNote = false;
     }
 
     setup () {
@@ -42,6 +43,7 @@ export default class LectureNote {
     clear () {
         this.lectureNoteList = [];
         this.lectureNoteContainer = null;
+        this.isLoadedLectureNote = false;
         this.hiddenLectureNote();
     }
 
@@ -96,6 +98,7 @@ export default class LectureNote {
 
     initLectureNote (lectureNotes) {
         this.lectureNoteList = lectureNotes;
+        this.isLoadedLectureNote = true;
         this.setupUI();
         this.enableLectureNote();
     }
