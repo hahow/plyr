@@ -243,6 +243,11 @@ const controls = {
                 icon = 'play';
                 break;
 
+            case 'add-lecture-note':
+                type = 'add-lecture-note';
+                label = '筆記標註';
+                icon = 'add-lecture-note';
+
             default:
                 label = type;
                 icon = buttonType;

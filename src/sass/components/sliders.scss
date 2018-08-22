@@ -2,6 +2,56 @@
 // Slider inputs - <input type="range">
 // --------------------------------------------------------------
 
+.plyr--full-ui .plyr__progress input[type='range'] {
+    &::-webkit-slider-runnable-track {
+        @include plyr-range-track-orange();
+        background-image: linear-gradient(to right, currentColor var(--value, 0%), transparent var(--value, 0%));
+    }
+
+    &::-webkit-slider-thumb {
+        @include plyr-range-thumb-orange();
+        -webkit-appearance: none; /* stylelint-disable-line */
+        margin-top: -(($plyr-range-thumb-height - $plyr-range-track-height) / 2);
+    }
+
+    // Mozilla
+    &::-moz-range-track {
+        @include plyr-range-track-orange();
+    }
+
+    &::-moz-range-thumb {
+        @include plyr-range-thumb-orange();
+    }
+
+    &::-moz-range-progress {
+        background: currentColor;
+        border-radius: ($plyr-range-track-height / 2);
+        height: $plyr-range-track-height;
+    }
+
+    // Microsoft
+    &::-ms-track {
+        @include plyr-range-track-orange();
+        color: transparent;
+    }
+
+    &::-ms-fill-upper {
+        @include plyr-range-track-orange();
+    }
+
+    &::-ms-fill-lower {
+        @include plyr-range-track-orange();
+
+        background: currentColor;
+    }
+
+    &::-ms-thumb {
+        @include plyr-range-thumb-orange();
+        // For some reason, Edge uses the -webkit margin above
+        margin-top: 0;
+    }
+}
+
 .plyr--full-ui input[type='range'] {
     // WebKit
     -webkit-appearance: none; /* stylelint-disable-line */

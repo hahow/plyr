@@ -1566,6 +1566,11 @@ typeof navigator === "object" && (function (global, factory) {
                     icon = 'play';
                     break;
 
+                case 'add-lecture-note':
+                    type = 'add-lecture-note';
+                    label = '筆記標註';
+                    icon = 'add-lecture-note';
+
                 default:
                     label = type;
                     icon = buttonType;
@@ -4103,6 +4108,416 @@ typeof navigator === "object" && (function (global, factory) {
         return Fullscreen;
     }();
 
+    var hahow = {
+        createControls: function createControls(data) {
+            var _this = this;
+
+            // Create the container
+            var container = createElement('div', getAttributesFromSelector(this.config.selectors.controls.wrapper));
+
+            var topLayer = createElement('div', getAttributesFromSelector(this.config.selectors.controls.layer.topLayer));
+            var bottomLayer = createElement('div', getAttributesFromSelector(this.config.selectors.controls.layer.bottomLayer));
+            var bottomLeft = createElement('div', getAttributesFromSelector(this.config.selectors.controls.bottom.left));
+            var bottomRight = createElement('div', getAttributesFromSelector(this.config.selectors.controls.bottom.right));
+
+            bottomLayer.appendChild(bottomLeft);
+            bottomLayer.appendChild(bottomRight);
+            container.appendChild(topLayer);
+            container.appendChild(bottomLayer);
+
+            // Rewind button
+            bottomLeft.appendChild(controls.createButton.call(this, 'rewind'));
+
+            // Play/Pause button
+            bottomLeft.appendChild(controls.createButton.call(this, 'play'));
+
+            // Fast forward button
+            bottomLeft.appendChild(controls.createButton.call(this, 'fast-forward'));
+
+            // Progress
+            var progress = createElement('div', getAttributesFromSelector(this.config.selectors.progress));
+
+            // Seek range slider
+            progress.appendChild(controls.createRange.call(this, 'seek', {
+                id: 'plyr-seek-' + data.id
+            }));
+
+            // Buffer progress
+            progress.appendChild(controls.createProgress.call(this, 'buffer'));
+
+            // TODO: Add loop display indicator
+
+            // Seek tooltip
+            if (this.config.tooltips.seek) {
+                var tooltip = createElement('span', {
+                    class: this.config.classNames.tooltip
+                }, '00:00');
+
+                progress.appendChild(tooltip);
+                this.elements.display.seekTooltip = tooltip;
+            }
+
+            this.elements.progress = progress;
+            topLayer.appendChild(this.elements.progress);
+
+            // Media current time display
+            bottomLeft.appendChild(controls.createTime.call(this, 'currentTime'));
+
+            // Media duration display
+            bottomLeft.appendChild(controls.createTime.call(this, 'duration'));
+
+            // Add lecture note button
+            var addLecturneNoteBtn = controls.createButton.call(this, 'add-lecture-note', {
+                class: 'plyr__add-lecture-note hidden'
+            });
+            addLecturneNoteBtn.appendChild(createElement('span', {}, '筆記標註'));
+            bottomRight.appendChild(addLecturneNoteBtn);
+
+            addLecturneNoteBtn.addEventListener('click', function (e) {
+                _this.pause();
+                _this.lectureNote.addLectureNote();
+                e.stopPropagation();
+            });
+
+            // Toggle mute button
+            bottomRight.appendChild(controls.createButton.call(this, 'mute'));
+
+            // Volume range control
+            var volume = createElement('div', {
+                class: 'plyr__volume'
+            });
+
+            // Set the attributes
+            var attributes = {
+                max: 1,
+                step: 0.05,
+                value: this.config.volume
+            };
+
+            // Create the volume range slider
+            volume.appendChild(controls.createRange.call(this, 'volume', extend(attributes, {
+                id: 'plyr-volume-' + data.id
+            })));
+
+            this.elements.volume = volume;
+
+            bottomRight.appendChild(volume);
+
+            // Settings button / menu
+            var menu = createElement('div', {
+                class: 'plyr__menu',
+                hidden: ''
+            });
+
+            menu.appendChild(controls.createButton.call(this, 'settings', {
+                id: 'plyr-settings-toggle-' + data.id,
+                'aria-haspopup': true,
+                'aria-controls': 'plyr-settings-' + data.id,
+                'aria-expanded': false
+            }));
+
+            var form = createElement('form', {
+                class: 'plyr__menu__container',
+                id: 'plyr-settings-' + data.id,
+                hidden: '',
+                'aria-labelled-by': 'plyr-settings-toggle-' + data.id,
+                role: 'tablist',
+                tabindex: -1
+            });
+
+            var inner = createElement('div');
+
+            var home = createElement('div', {
+                id: 'plyr-settings-' + data.id + '-home',
+                'aria-labelled-by': 'plyr-settings-toggle-' + data.id,
+                role: 'tabpanel'
+            });
+
+            // Create the tab list
+            var tabs = createElement('ul', {
+                role: 'tablist'
+            });
+
+            // Build the tabs
+            this.config.settings.forEach(function (type) {
+                var tab = createElement('li', {
+                    role: 'tab',
+                    hidden: ''
+                });
+
+                var button = createElement('button', extend(getAttributesFromSelector(_this.config.selectors.buttons.settings), {
+                    type: 'button',
+                    class: _this.config.classNames.control + ' ' + _this.config.classNames.control + '--forward',
+                    id: 'plyr-settings-' + data.id + '-' + type + '-tab',
+                    'aria-haspopup': true,
+                    'aria-controls': 'plyr-settings-' + data.id + '-' + type,
+                    'aria-expanded': false
+                }), i18n.get(type, _this.config));
+
+                var value = createElement('span', {
+                    class: _this.config.classNames.menu.value
+                });
+
+                // Speed contains HTML entities
+                value.innerHTML = data[type];
+
+                button.appendChild(value);
+                tab.appendChild(button);
+                tabs.appendChild(tab);
+
+                _this.elements.settings.tabs[type] = tab;
+            });
+
+            home.appendChild(tabs);
+            inner.appendChild(home);
+
+            // Build the panes
+            this.config.settings.forEach(function (type) {
+                var pane = createElement('div', {
+                    id: 'plyr-settings-' + data.id + '-' + type,
+                    class: 'subpanel',
+                    hidden: '',
+                    'aria-labelled-by': 'plyr-settings-' + data.id + '-' + type + '-tab',
+                    role: 'tabpanel',
+                    tabindex: -1
+                });
+
+                var back = createElement('button', {
+                    type: 'button',
+                    class: _this.config.classNames.control + ' ' + _this.config.classNames.control + '--back',
+                    'aria-haspopup': true,
+                    'aria-controls': 'plyr-settings-' + data.id + '-home',
+                    'aria-expanded': false
+                }, i18n.get(type, _this.config));
+
+                pane.appendChild(back);
+
+                var options = createElement('ul');
+
+                pane.appendChild(options);
+                inner.appendChild(pane);
+
+                _this.elements.settings.panes[type] = pane;
+            });
+
+            form.appendChild(inner);
+            menu.appendChild(form);
+            bottomRight.appendChild(menu);
+
+            this.elements.settings.form = form;
+            this.elements.settings.menu = menu;
+
+            bottomRight.appendChild(controls.createButton.call(this, 'zoom'));
+
+            // Toggle fullscreen button
+            bottomRight.appendChild(controls.createButton.call(this, 'fullscreen'));
+
+            this.elements.controls = container;
+
+            if (this.isHTML5) {
+                hahow.setQualityMenu.call(this, html5.getQualityOptions.call(this));
+            }
+
+            hahow.setSpeedMenu.call(this);
+            hahow.setCaptionsMenu.call(this);
+            hahow.setCaptionsPositionMenu.call(this);
+
+            return container;
+        },
+
+
+        // Set the quality menu
+        setQualityMenu: function setQualityMenu(options) {
+            var _this2 = this;
+
+            var type = 'quality';
+            var list = this.elements.settings.panes.quality.querySelector('ul');
+
+            // Set options if passed and filter based on uniqueness and config
+            if (is.array(options)) {
+                this.options.quality = dedupe(options);
+            }
+
+            // Toggle the pane and tab
+            var toggle = !is.empty(this.options.quality) && this.options.quality.length > 1;
+            controls.toggleTab.call(this, type, toggle);
+
+            // Check if we need to toggle the parent
+            controls.checkMenu.call(this);
+
+            // If we're hiding, nothing more to do
+            if (!toggle) {
+                return;
+            }
+
+            // Empty the menu
+            emptyElement(list);
+
+            // Sort options by the config and then render options
+            this.options.quality.sort(function (a, b) {
+                return a - b;
+            }).forEach(function (quality) {
+                controls.createMenuItem.call(_this2, {
+                    value: quality,
+                    list: list,
+                    type: type,
+                    title: controls.getLabel.call(_this2, 'quality', quality)
+                });
+            });
+
+            controls.updateSetting.call(this, type, list);
+        },
+
+
+        // Set a list of available captions languages
+        setCaptionsMenu: function setCaptionsMenu() {
+            var _this3 = this;
+
+            // Menu required
+            if (!is.element(this.elements.settings.panes.captions)) {
+                return;
+            }
+
+            // TODO: Captions or language? Currently it's mixed
+            var type = 'captions';
+            var list = this.elements.settings.panes.captions.querySelector('ul');
+            var tracks = captions.getTracks.call(this);
+
+            // Toggle the pane and tab
+            controls.toggleTab.call(this, type, true);
+
+            // Empty the menu
+            emptyElement(list);
+
+            // Check if we need to toggle the parent
+            controls.checkMenu.call(this);
+
+            // If there's no captions, bail
+            if (!tracks.length) {
+                controls.createMenuItem.bind(this)({
+                    value: -1,
+                    checked: !this.captions.toggled,
+                    title: i18n.get('noCaptions', this.config),
+                    list: list,
+                    type: 'language'
+                });
+                controls.updateSetting.call(this, type, list);
+                return;
+            }
+
+            // Generate options data
+            var options = tracks.map(function (track, value) {
+                return {
+                    value: value,
+                    checked: _this3.captions.toggled && _this3.currentTrack === value,
+                    title: captions.getLabel.call(_this3, track),
+                    badge: track.language && controls.createBadge.call(_this3, track.language.toUpperCase()),
+                    list: list,
+                    type: 'language'
+                };
+            });
+
+            // Add the "Disabled" option to turn off captions
+            options.unshift({
+                value: -1,
+                checked: !this.captions.toggled,
+                title: i18n.get('disabled', this.config),
+                list: list,
+                type: 'language'
+            });
+
+            // Generate options
+            options.forEach(controls.createMenuItem.bind(this));
+
+            controls.updateSetting.call(this, type, list);
+        },
+        setCaptionsPositionMenu: function setCaptionsPositionMenu() {
+            var _this4 = this;
+
+            if (!is.element(this.elements.settings.panes['caption-position'])) {
+                return;
+            }
+
+            var type = 'caption-position';
+
+            controls.toggleTab.call(this, type, true);
+
+            // Get the list to populate
+            var list = this.elements.settings.panes['caption-position'].querySelector('ul');
+
+            // Empty the menu
+            emptyElement(list);
+
+            var positions = ['top', 'bottom'];
+
+            // Create items
+            positions.forEach(function (position) {
+                controls.createMenuItem.call(_this4, {
+                    value: position,
+                    list: list,
+                    type: type,
+                    title: controls.getLabel.call(_this4, 'caption-position', position)
+                });
+            });
+            controls.updateSetting.call(this, type, list);
+        },
+
+
+        // Set a list of available captions languages
+        setSpeedMenu: function setSpeedMenu(options) {
+            var _this5 = this;
+
+            // Menu required
+            if (!is.element(this.elements.settings.panes.speed)) {
+                return;
+            }
+
+            var type = 'speed';
+
+            // Set the speed options
+            if (is.array(options)) {
+                this.options.speed = options;
+            } else if (this.isHTML5 || this.isVimeo) {
+                this.options.speed = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+            }
+
+            // Set options if passed and filter based on config
+            this.options.speed = this.options.speed.filter(function (speed) {
+                return _this5.config.speed.options.includes(speed);
+            });
+
+            // Toggle the pane and tab
+            var toggle = !is.empty(this.options.speed) && this.options.speed.length > 1;
+            controls.toggleTab.call(this, type, toggle);
+
+            // Check if we need to toggle the parent
+            controls.checkMenu.call(this);
+
+            // If we're hiding, nothing more to do
+            if (!toggle) {
+                return;
+            }
+
+            // Get the list to populate
+            var list = this.elements.settings.panes.speed.querySelector('ul');
+
+            // Empty the menu
+            emptyElement(list);
+
+            // Create items
+            this.options.speed.forEach(function (speed) {
+                controls.createMenuItem.call(_this5, {
+                    value: speed,
+                    list: list,
+                    type: type,
+                    title: controls.getLabel.call(_this5, 'speed', speed)
+                });
+            });
+
+            controls.updateSetting.call(this, type, list);
+        }
+    };
+
     // ==========================================================================
     // Load image avoiding xhr/fetch CORS issues
     // Server status can't be obtained this way unfortunately, so this uses "naturalWidth" to determine if the image has loaded
@@ -5081,6 +5496,38 @@ typeof navigator === "object" && (function (global, factory) {
         }]);
         return Listeners;
     }();
+
+    var logo = {
+        setup: function setup() {
+            // add custom logo
+            if (this.config.logo && this.config.logo.url) {
+                // build logo container
+                var logoContainer = document.createElement('div');
+                toggleClass(logoContainer, this.config.classNames.logo, true);
+
+                // image put into logo container if link not present
+                var imageContainer = logoContainer;
+
+                if (this.config.logo.link) {
+                    // if logo.link setup, put image into a
+                    var linkElement = document.createElement('a');
+                    setAttributes(linkElement, {
+                        href: this.config.logo.link
+                    });
+                    logoContainer.appendChild(linkElement);
+                    imageContainer = linkElement;
+                }
+
+                // build logo image
+                var logoElement = document.createElement('img');
+                setAttributes(logoElement, {
+                    src: this.config.logo.url
+                });
+                imageContainer.appendChild(logoElement);
+                this.elements.container.appendChild(logoContainer);
+            }
+        }
+    };
 
     var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -7040,6 +7487,370 @@ typeof navigator === "object" && (function (global, factory) {
         return Ads;
     }();
 
+    var LectureNoteModel = function LectureNoteModel() {
+        classCallCheck(this, LectureNoteModel);
+
+        this.showStatus = LectureNoteModel.ShowStatus.Edit;
+        this.noteStatus = LectureNoteModel.NoteStatus.Create;
+        this.time = 0;
+        this.note = '';
+    };
+
+    LectureNoteModel.ShowStatus = {
+        Edit: 'Edit',
+        Hide: 'Hide'
+    };
+    LectureNoteModel.NoteStatus = {
+        Create: 'Create',
+        Normal: 'Normal'
+    };
+
+    var AddLectureNoteButtonStatus = {
+        Enable: 'enable',
+        Disable: 'disable',
+        Hidden: 'hidden'
+    };
+
+    var LectureNote = function () {
+        function LectureNote(player) {
+            classCallCheck(this, LectureNote);
+
+            this.player = player;
+            this.lectureNoteList = [];
+            this.lectureNoteContainer = null;
+            this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Hidden;
+        }
+
+        createClass(LectureNote, [{
+            key: 'setup',
+            value: function setup() {}
+        }, {
+            key: 'clear',
+            value: function clear() {
+                this.lectureNoteList = [];
+                this.lectureNoteContainer = null;
+                this.hiddenLectureNote();
+            }
+        }, {
+            key: 'enableLectureNote',
+            value: function enableLectureNote() {
+                this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Enable;
+                this.updateAddLectureNoteButtonUI();
+            }
+        }, {
+            key: 'disableLectureNote',
+            value: function disableLectureNote() {
+                this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Disable;
+                this.updateAddLectureNoteButtonUI();
+            }
+        }, {
+            key: 'hiddenLectureNote',
+            value: function hiddenLectureNote() {
+                this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Hidden;
+                this.updateAddLectureNoteButtonUI();
+            }
+        }, {
+            key: 'updateAddLectureNoteButtonUI',
+            value: function updateAddLectureNoteButtonUI() {
+                var addLectureNoteButton = getElement.call(this.player, '.plyr__add-lecture-note');
+                switch (this.addLectureNoteButtonStatus) {
+                    case AddLectureNoteButtonStatus.Enable:
+                        toggleClass.call(this.player, addLectureNoteButton, 'disable', false);
+                        toggleClass.call(this.player, addLectureNoteButton, 'hidden', false);
+                        toggleClass.call(this.player, '.plyr__lecture-note-container', 'hidden', false);
+                        break;
+                    case AddLectureNoteButtonStatus.Disable:
+                        toggleClass.call(this.player, addLectureNoteButton, 'disable', true);
+                        toggleClass.call(this.player, addLectureNoteButton, 'hidden', false);
+                        toggleClass.call(this.player, '.plyr__lecture-note-container', 'hidden', false);
+                        break;
+                    case AddLectureNoteButtonStatus.Hidden:
+                        toggleClass.call(this.player, addLectureNoteButton, 'disable', true);
+                        toggleClass.call(this.player, addLectureNoteButton, 'hidden', true);
+                        toggleClass.call(this.player, '.plyr__lecture-note-container', 'hidden', true);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }, {
+            key: 'setupUI',
+            value: function setupUI() {
+                var lectureNoteContainer = this.getContainer();
+                for (var i = 0; i < this.lectureNoteList.length; i += 1) {
+                    var note = this.lectureNoteList[i];
+                    if (!this.isLectureNoteExists(note._id)) {
+                        var lectureNoteDOM = this.generateLectureNoteDOM(note);
+                        lectureNoteContainer.appendChild(lectureNoteDOM);
+                    }
+                }
+            }
+        }, {
+            key: 'initLectureNote',
+            value: function initLectureNote(lectureNotes) {
+                this.lectureNoteList = lectureNotes;
+                this.setupUI();
+                this.enableLectureNote();
+            }
+        }, {
+            key: 'addLectureNote',
+            value: function addLectureNote() {
+                var time = Math.round(this.player.currentTime);
+                if (this.hasSameTimeLectureNote(time)) ; else {
+                    this.disableLectureNote();
+                    triggerEvent.call(this.player, this.player.media, 'lecturenotecreate', true, {
+                        lectureNote: {
+                            time: time
+                        }
+                    });
+                }
+            }
+        }, {
+            key: 'completeAddLectureNote',
+            value: function completeAddLectureNote(lectureNote) {
+                this.enableLectureNote();
+                var newLectureNote = Object.assign({}, lectureNote, {
+                    showStatus: LectureNoteModel.ShowStatus.Edit
+                });
+                this.lectureNoteList.push(newLectureNote);
+                var lectureNoteDOM = this.generateLectureNoteDOM(newLectureNote);
+                var lectureNoteContainer = this.getContainer();
+                lectureNoteContainer.appendChild(lectureNoteDOM);
+            }
+        }, {
+            key: 'removeLectureNote',
+            value: function removeLectureNote(lectureNote) {
+                var lectureNoteContainer = getElement.call(this.player, 'div[data-id="' + lectureNote._id + '"]');
+                if (lectureNoteContainer) {
+                    lectureNoteContainer.parentElement.removeChild(lectureNoteContainer);
+                    for (var i = 0; i < this.lectureNoteList.length; i += 1) {
+                        if (this.lectureNoteList[i]._id === lectureNote._id) {
+                            this.lectureNoteList.splice(i, 1);
+                            return;
+                        }
+                    }
+                }
+            }
+        }, {
+            key: 'hasSameTimeLectureNote',
+            value: function hasSameTimeLectureNote(time) {
+                for (var i = 0; i < this.lectureNoteList.length; i += 1) {
+                    if (this.lectureNoteList[i].time === time) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            /**
+             * @private
+             * @return {null|*}
+             */
+
+        }, {
+            key: 'getContainer',
+            value: function getContainer() {
+                if (this.lectureNoteContainer && !this.lectureNoteContainer.parentElement) {
+                    this.lectureNoteContainer = null;
+                }
+                if (this.lectureNoteContainer === null) {
+                    this.lectureNoteContainer = createElement('div', {
+                        'class': 'plyr__lecture-note-container'
+                    });
+                    var progresses = getElement.call(this.player, this.player.config.selectors.progress);
+                    progresses.appendChild(this.lectureNoteContainer);
+                }
+                return this.lectureNoteContainer;
+            }
+
+            /**
+             * @private
+             * @param lectureNoteId
+             * @return {boolean}
+             */
+
+        }, {
+            key: 'isLectureNoteExists',
+            value: function isLectureNoteExists(lectureNoteId) {
+                return getElement.call(this.player, '.lecture-note[data-id="' + lectureNoteId + '"]') !== null;
+            }
+
+            /**
+             * @private
+             * @param lectureNote
+             */
+
+        }, {
+            key: 'generateLectureNoteDOM',
+            value: function generateLectureNoteDOM(lectureNote) {
+                var _this = this;
+
+                var duration = this.player.duration;
+
+                var percent = lectureNote.time / duration * 100 || 0;
+
+                var cancelTimeout = null;
+
+                var lectureNoteContainer = createElement('div', {
+                    'data-id': lectureNote._id,
+                    class: 'lecture-note'
+                });
+
+                /* lecture-note__mark */
+                var className = 'lecture-note__mark';
+                var mark = createElement('span', {
+                    class: className
+                });
+                lectureNoteContainer.appendChild(mark);
+
+                // 點擊 mark 跳到對應的播放時間
+                mark.addEventListener('click', function (e) {
+                    _this.player.currentTime = lectureNote.time;
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+                /* lecture-note__mark */
+
+                /* lecture-note__content-container */
+                var status = lectureNote.showStatus;
+                var contentContainer = createElement('div', {
+                    class: 'lecture-note__content-container ' + (status === LectureNoteModel.ShowStatus.Edit ? ' lecture-note__content-container--edit' : '')
+                });
+                lectureNoteContainer.appendChild(contentContainer);
+                /* lecture-note__content-container */
+
+                /* lecture-note__content-textarea */
+                var contentTextarea = createElement('textarea', {
+                    class: 'lecture-note__content-textarea',
+                    placeholder: '新增筆記 (限 50 字)',
+                    maxLength: 50,
+                    rows: 1
+                });
+                contentTextarea.value = lectureNote.note || '';
+                contentContainer.appendChild(contentTextarea);
+                /* lecture-note__content-textarea */
+
+                /* lecture-note__content-show-text */
+                var contentShowText = createElement('span', {
+                    class: 'lecture-note__content-show-text'
+                });
+                contentShowText.innerHTML = lectureNote.note;
+                contentContainer.appendChild(contentShowText);
+                /* lecture-note__content-show-text */
+
+                /* lecture-note__trash-icon-wrapper */
+                var trashIconWrapper = createElement('span', {
+                    class: 'lecture-note__trash-icon-wrapper'
+                });
+                var trashIcon = controls.createIcon.call(this.player, 'trash');
+                trashIconWrapper.appendChild(trashIcon);
+                contentContainer.appendChild(trashIconWrapper);
+                // 點擊垃圾桶 icon 刪除 lecturenote
+                trashIconWrapper.addEventListener('click', function (e) {
+                    triggerEvent.call(_this.player, _this.player.media, 'lecturenotedelete', true, {
+                        lectureNote: lectureNote
+                    });
+                    _this.removeLectureNote(lectureNote);
+                });
+                /* lecture-note__trash-icon-wrapper */
+
+                // 點擊 container 開啟編輯模式
+                contentContainer.addEventListener('click', function (e) {
+                    toggleClass(contentContainer, 'lecture-note__content-container--edit', true);
+                    lectureNote.showStatus = LectureNoteModel.ShowStatus.Edit;
+                    contentTextarea.style.height = 'auto';
+                    contentTextarea.style.height = contentTextarea.scrollHeight + 'px';
+                    contentTextarea.focus();
+                });
+
+                setTimeout(function () {
+                    contentTextarea.focus();
+                }, 50);
+
+                contentTextarea.addEventListener('keyup', function () {
+                    contentTextarea.style.height = 'auto';
+                    contentTextarea.style.height = contentTextarea.scrollHeight + 'px';
+                });
+
+                var isInComposition = false;
+                contentTextarea.addEventListener('compositionstart', function (e) {
+                    isInComposition = true;
+                });
+
+                contentTextarea.addEventListener('compositionend', function (e) {
+                    setTimeout(function () {
+                        isInComposition = false;
+                    }, 10);
+                });
+
+                contentTextarea.addEventListener('keydown', function (e) {
+                    if (!isInComposition && e.key === 'Enter') {
+                        lectureNote.note = contentTextarea.value;
+                        contentShowText.innerHTML = lectureNote.note;
+                        toggleClass(contentContainer, 'lecture-note__content-container--edit', false);
+                        lectureNote.showStatus = LectureNoteModel.ShowStatus.Hide;
+                        toggleClass(lectureNoteContainer, 'hover', true);
+                        cancelTimeout = setTimeout(function () {
+                            toggleClass(lectureNoteContainer, 'hover', false);
+                        }, 1000);
+                        triggerEvent.call(_this.player, _this.player.media, 'lecturenoteupdate', true, {
+                            lectureNote: lectureNote
+                        });
+                        try {
+                            _this.player.play();
+                        } catch (e) {
+                            // ignore
+                        }
+                        e.preventDefault();
+                    }
+                    if (e.key === 'Escape') {
+                        contentTextarea.value = lectureNote.note;
+                        toggleClass(contentContainer, 'lecture-note__content-container--edit', false);
+                        lectureNote.showStatus = LectureNoteModel.ShowStatus.Hide;
+                    }
+                });
+
+                mark.addEventListener('mouseenter', function (e) {
+                    if (cancelTimeout) {
+                        clearTimeout(cancelTimeout);
+                        cancelTimeout = null;
+                    }
+                    toggleClass(contentContainer, 'lecture-note__content-container--show', true);
+                    e.preventDefault();
+                });
+
+                mark.addEventListener('mouseleave', function (e) {
+                    cancelTimeout = setTimeout(function () {
+                        toggleClass(contentContainer, 'lecture-note__content-container--show', false);
+                    }, 500);
+
+                    e.preventDefault();
+                });
+
+                contentContainer.addEventListener('mouseenter', function (e) {
+                    if (cancelTimeout) {
+                        clearTimeout(cancelTimeout);
+                        cancelTimeout = null;
+                    }
+                    toggleClass(contentContainer, 'lecture-note__content-container--show', true);
+                    e.preventDefault();
+                });
+
+                contentContainer.addEventListener('mouseleave', function (e) {
+                    cancelTimeout = setTimeout(function () {
+                        toggleClass(contentContainer, 'lecture-note__content-container--show', false);
+                    }, 500);
+
+                    e.preventDefault();
+                });
+
+                lectureNoteContainer.style.left = 'calc(' + (lectureNote.time / duration * 100 || 0) + '%)';
+                return lectureNoteContainer;
+            }
+        }]);
+        return LectureNote;
+    }();
+
     // ==========================================================================
 
     var source = {
@@ -7078,6 +7889,7 @@ typeof navigator === "object" && (function (global, factory) {
 
             // Destroy instance and re-setup
             this.destroy.call(this, function () {
+                _this2.lectureNote.clear();
                 // Reset quality options
                 _this2.options.quality = [];
 
@@ -7210,436 +8022,8 @@ typeof navigator === "object" && (function (global, factory) {
                     _this2.speed = speed;
                     controls.updateSetting.call(_this2, 'speed', speed);
                 }
+                _this2.lectureNote.setupUI();
             }, true);
-        }
-    };
-
-    var logo = {
-        setup: function setup() {
-            // add custom logo
-            if (this.config.logo && this.config.logo.url) {
-                // build logo container
-                var logoContainer = document.createElement('div');
-                toggleClass(logoContainer, this.config.classNames.logo, true);
-
-                // image put into logo container if link not present
-                var imageContainer = logoContainer;
-
-                if (this.config.logo.link) {
-                    // if logo.link setup, put image into a
-                    var linkElement = document.createElement('a');
-                    setAttributes(linkElement, {
-                        href: this.config.logo.link
-                    });
-                    logoContainer.appendChild(linkElement);
-                    imageContainer = linkElement;
-                }
-
-                // build logo image
-                var logoElement = document.createElement('img');
-                setAttributes(logoElement, {
-                    src: this.config.logo.url
-                });
-                imageContainer.appendChild(logoElement);
-                this.elements.container.appendChild(logoContainer);
-            }
-        }
-    };
-
-    var hahow = {
-        createControls: function createControls(data) {
-            var _this = this;
-
-            // Create the container
-            var container = createElement('div', getAttributesFromSelector(this.config.selectors.controls.wrapper));
-
-            var topLayer = createElement('div', getAttributesFromSelector(this.config.selectors.controls.layer.topLayer));
-            var bottomLayer = createElement('div', getAttributesFromSelector(this.config.selectors.controls.layer.bottomLayer));
-            var bottomLeft = createElement('div', getAttributesFromSelector(this.config.selectors.controls.bottom.left));
-            var bottomRight = createElement('div', getAttributesFromSelector(this.config.selectors.controls.bottom.right));
-
-            bottomLayer.appendChild(bottomLeft);
-            bottomLayer.appendChild(bottomRight);
-            container.appendChild(topLayer);
-            container.appendChild(bottomLayer);
-
-            // Rewind button
-            bottomLeft.appendChild(controls.createButton.call(this, 'rewind'));
-
-            // Play/Pause button
-            bottomLeft.appendChild(controls.createButton.call(this, 'play'));
-
-            // Fast forward button
-            bottomLeft.appendChild(controls.createButton.call(this, 'fast-forward'));
-
-            // Progress
-            var progress = createElement('div', getAttributesFromSelector(this.config.selectors.progress));
-
-            // Seek range slider
-            progress.appendChild(controls.createRange.call(this, 'seek', {
-                id: 'plyr-seek-' + data.id
-            }));
-
-            // Buffer progress
-            progress.appendChild(controls.createProgress.call(this, 'buffer'));
-
-            // TODO: Add loop display indicator
-
-            // Seek tooltip
-            if (this.config.tooltips.seek) {
-                var tooltip = createElement('span', {
-                    class: this.config.classNames.tooltip
-                }, '00:00');
-
-                progress.appendChild(tooltip);
-                this.elements.display.seekTooltip = tooltip;
-            }
-
-            this.elements.progress = progress;
-            topLayer.appendChild(this.elements.progress);
-
-            // Media current time display
-            bottomLeft.appendChild(controls.createTime.call(this, 'currentTime'));
-
-            // Media duration display
-            bottomLeft.appendChild(controls.createTime.call(this, 'duration'));
-
-            // Toggle mute button
-            bottomRight.appendChild(controls.createButton.call(this, 'mute'));
-
-            // Volume range control
-            var volume = createElement('div', {
-                class: 'plyr__volume'
-            });
-
-            // Set the attributes
-            var attributes = {
-                max: 1,
-                step: 0.05,
-                value: this.config.volume
-            };
-
-            // Create the volume range slider
-            volume.appendChild(controls.createRange.call(this, 'volume', extend(attributes, {
-                id: 'plyr-volume-' + data.id
-            })));
-
-            this.elements.volume = volume;
-
-            bottomRight.appendChild(volume);
-
-            // Settings button / menu
-            var menu = createElement('div', {
-                class: 'plyr__menu',
-                hidden: ''
-            });
-
-            menu.appendChild(controls.createButton.call(this, 'settings', {
-                id: 'plyr-settings-toggle-' + data.id,
-                'aria-haspopup': true,
-                'aria-controls': 'plyr-settings-' + data.id,
-                'aria-expanded': false
-            }));
-
-            var form = createElement('form', {
-                class: 'plyr__menu__container',
-                id: 'plyr-settings-' + data.id,
-                hidden: '',
-                'aria-labelled-by': 'plyr-settings-toggle-' + data.id,
-                role: 'tablist',
-                tabindex: -1
-            });
-
-            var inner = createElement('div');
-
-            var home = createElement('div', {
-                id: 'plyr-settings-' + data.id + '-home',
-                'aria-labelled-by': 'plyr-settings-toggle-' + data.id,
-                role: 'tabpanel'
-            });
-
-            // Create the tab list
-            var tabs = createElement('ul', {
-                role: 'tablist'
-            });
-
-            // Build the tabs
-            this.config.settings.forEach(function (type) {
-                var tab = createElement('li', {
-                    role: 'tab',
-                    hidden: ''
-                });
-
-                var button = createElement('button', extend(getAttributesFromSelector(_this.config.selectors.buttons.settings), {
-                    type: 'button',
-                    class: _this.config.classNames.control + ' ' + _this.config.classNames.control + '--forward',
-                    id: 'plyr-settings-' + data.id + '-' + type + '-tab',
-                    'aria-haspopup': true,
-                    'aria-controls': 'plyr-settings-' + data.id + '-' + type,
-                    'aria-expanded': false
-                }), i18n.get(type, _this.config));
-
-                var value = createElement('span', {
-                    class: _this.config.classNames.menu.value
-                });
-
-                // Speed contains HTML entities
-                value.innerHTML = data[type];
-
-                button.appendChild(value);
-                tab.appendChild(button);
-                tabs.appendChild(tab);
-
-                _this.elements.settings.tabs[type] = tab;
-            });
-
-            home.appendChild(tabs);
-            inner.appendChild(home);
-
-            // Build the panes
-            this.config.settings.forEach(function (type) {
-                var pane = createElement('div', {
-                    id: 'plyr-settings-' + data.id + '-' + type,
-                    class: 'subpanel',
-                    hidden: '',
-                    'aria-labelled-by': 'plyr-settings-' + data.id + '-' + type + '-tab',
-                    role: 'tabpanel',
-                    tabindex: -1
-                });
-
-                var back = createElement('button', {
-                    type: 'button',
-                    class: _this.config.classNames.control + ' ' + _this.config.classNames.control + '--back',
-                    'aria-haspopup': true,
-                    'aria-controls': 'plyr-settings-' + data.id + '-home',
-                    'aria-expanded': false
-                }, i18n.get(type, _this.config));
-
-                pane.appendChild(back);
-
-                var options = createElement('ul');
-
-                pane.appendChild(options);
-                inner.appendChild(pane);
-
-                _this.elements.settings.panes[type] = pane;
-            });
-
-            form.appendChild(inner);
-            menu.appendChild(form);
-            bottomRight.appendChild(menu);
-
-            this.elements.settings.form = form;
-            this.elements.settings.menu = menu;
-
-            bottomRight.appendChild(controls.createButton.call(this, 'zoom'));
-
-            // Toggle fullscreen button
-            bottomRight.appendChild(controls.createButton.call(this, 'fullscreen'));
-
-            this.elements.controls = container;
-
-            if (this.isHTML5) {
-                hahow.setQualityMenu.call(this, html5.getQualityOptions.call(this));
-            }
-
-            hahow.setSpeedMenu.call(this);
-            hahow.setCaptionsMenu.call(this);
-            hahow.setCaptionsPositionMenu.call(this);
-
-            return container;
-        },
-
-
-        // Set the quality menu
-        setQualityMenu: function setQualityMenu(options) {
-            var _this2 = this;
-
-            var type = 'quality';
-            var list = this.elements.settings.panes.quality.querySelector('ul');
-
-            // Set options if passed and filter based on uniqueness and config
-            if (is.array(options)) {
-                this.options.quality = dedupe(options);
-            }
-
-            // Toggle the pane and tab
-            var toggle = !is.empty(this.options.quality) && this.options.quality.length > 1;
-            controls.toggleTab.call(this, type, toggle);
-
-            // Check if we need to toggle the parent
-            controls.checkMenu.call(this);
-
-            // If we're hiding, nothing more to do
-            if (!toggle) {
-                return;
-            }
-
-            // Empty the menu
-            emptyElement(list);
-
-            // Sort options by the config and then render options
-            this.options.quality.sort(function (a, b) {
-                return a - b;
-            }).forEach(function (quality) {
-                controls.createMenuItem.call(_this2, {
-                    value: quality,
-                    list: list,
-                    type: type,
-                    title: controls.getLabel.call(_this2, 'quality', quality)
-                });
-            });
-
-            controls.updateSetting.call(this, type, list);
-        },
-
-
-        // Set a list of available captions languages
-        setCaptionsMenu: function setCaptionsMenu() {
-            var _this3 = this;
-
-            // Menu required
-            if (!is.element(this.elements.settings.panes.captions)) {
-                return;
-            }
-
-            // TODO: Captions or language? Currently it's mixed
-            var type = 'captions';
-            var list = this.elements.settings.panes.captions.querySelector('ul');
-            var tracks = captions.getTracks.call(this);
-
-            // Toggle the pane and tab
-            controls.toggleTab.call(this, type, true);
-
-            // Empty the menu
-            emptyElement(list);
-
-            // Check if we need to toggle the parent
-            controls.checkMenu.call(this);
-
-            // If there's no captions, bail
-            if (!tracks.length) {
-                controls.createMenuItem.bind(this)({
-                    value: -1,
-                    checked: !this.captions.toggled,
-                    title: i18n.get('noCaptions', this.config),
-                    list: list,
-                    type: 'language'
-                });
-                controls.updateSetting.call(this, type, list);
-                return;
-            }
-
-            // Generate options data
-            var options = tracks.map(function (track, value) {
-                return {
-                    value: value,
-                    checked: _this3.captions.toggled && _this3.currentTrack === value,
-                    title: captions.getLabel.call(_this3, track),
-                    badge: track.language && controls.createBadge.call(_this3, track.language.toUpperCase()),
-                    list: list,
-                    type: 'language'
-                };
-            });
-
-            // Add the "Disabled" option to turn off captions
-            options.unshift({
-                value: -1,
-                checked: !this.captions.toggled,
-                title: i18n.get('disabled', this.config),
-                list: list,
-                type: 'language'
-            });
-
-            // Generate options
-            options.forEach(controls.createMenuItem.bind(this));
-
-            controls.updateSetting.call(this, type, list);
-        },
-        setCaptionsPositionMenu: function setCaptionsPositionMenu() {
-            var _this4 = this;
-
-            if (!is.element(this.elements.settings.panes['caption-position'])) {
-                return;
-            }
-
-            var type = 'caption-position';
-
-            controls.toggleTab.call(this, type, true);
-
-            // Get the list to populate
-            var list = this.elements.settings.panes['caption-position'].querySelector('ul');
-
-            // Empty the menu
-            emptyElement(list);
-
-            var positions = ['top', 'bottom'];
-
-            // Create items
-            positions.forEach(function (position) {
-                controls.createMenuItem.call(_this4, {
-                    value: position,
-                    list: list,
-                    type: type,
-                    title: controls.getLabel.call(_this4, 'caption-position', position)
-                });
-            });
-            controls.updateSetting.call(this, type, list);
-        },
-
-
-        // Set a list of available captions languages
-        setSpeedMenu: function setSpeedMenu(options) {
-            var _this5 = this;
-
-            // Menu required
-            if (!is.element(this.elements.settings.panes.speed)) {
-                return;
-            }
-
-            var type = 'speed';
-
-            // Set the speed options
-            if (is.array(options)) {
-                this.options.speed = options;
-            } else if (this.isHTML5 || this.isVimeo) {
-                this.options.speed = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-            }
-
-            // Set options if passed and filter based on config
-            this.options.speed = this.options.speed.filter(function (speed) {
-                return _this5.config.speed.options.includes(speed);
-            });
-
-            // Toggle the pane and tab
-            var toggle = !is.empty(this.options.speed) && this.options.speed.length > 1;
-            controls.toggleTab.call(this, type, toggle);
-
-            // Check if we need to toggle the parent
-            controls.checkMenu.call(this);
-
-            // If we're hiding, nothing more to do
-            if (!toggle) {
-                return;
-            }
-
-            // Get the list to populate
-            var list = this.elements.settings.panes.speed.querySelector('ul');
-
-            // Empty the menu
-            emptyElement(list);
-
-            // Create items
-            this.options.speed.forEach(function (speed) {
-                controls.createMenuItem.call(_this5, {
-                    value: speed,
-                    list: list,
-                    type: type,
-                    title: controls.getLabel.call(_this5, 'speed', speed)
-                });
-            });
-
-            controls.updateSetting.call(this, type, list);
         }
     };
 
@@ -7915,6 +8299,8 @@ typeof navigator === "object" && (function (global, factory) {
 
             // Setup ads if provided
             this.ads = new Ads(this);
+
+            this.lectureNote = new LectureNote(this);
 
             // Autoplay if required
             if (this.config.autoplay) {

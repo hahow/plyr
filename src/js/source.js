@@ -46,6 +46,7 @@ const source = {
         this.destroy.call(
             this,
             () => {
+                this.lectureNote.clear();
                 // Reset quality options
                 this.options.quality = [];
 
@@ -169,6 +170,7 @@ const source = {
                     this.speed = speed;
                     controls.updateSetting.call(this, 'speed', speed);
                 }
+                this.lectureNote.setupUI();
             },
             true,
         );
