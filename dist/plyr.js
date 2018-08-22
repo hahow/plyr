@@ -7519,6 +7519,7 @@ typeof navigator === "object" && (function (global, factory) {
             this.lectureNoteList = [];
             this.lectureNoteContainer = null;
             this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Hidden;
+            this.isLoadedLectureNote = false;
         }
 
         createClass(LectureNote, [{
@@ -7529,6 +7530,7 @@ typeof navigator === "object" && (function (global, factory) {
             value: function clear() {
                 this.lectureNoteList = [];
                 this.lectureNoteContainer = null;
+                this.isLoadedLectureNote = false;
                 this.hiddenLectureNote();
             }
         }, {
@@ -7589,6 +7591,7 @@ typeof navigator === "object" && (function (global, factory) {
             key: 'initLectureNote',
             value: function initLectureNote(lectureNotes) {
                 this.lectureNoteList = lectureNotes;
+                this.isLoadedLectureNote = true;
                 this.setupUI();
                 this.enableLectureNote();
             }
@@ -7596,7 +7599,18 @@ typeof navigator === "object" && (function (global, factory) {
             key: 'addLectureNote',
             value: function addLectureNote() {
                 var time = Math.round(this.player.currentTime);
-                if (this.hasSameTimeLectureNote(time)) ; else {
+                var note = this.getSameTimeLectureNote(time);
+                if (note) {
+
+                    var lectureNoteContainer = getElement.call(this.player, '.lecture-note[data-id="' + note._id + '"]');
+                    if (lectureNoteContainer) {
+                        var contentContianer = lectureNoteContainer.querySelector('lecture-note__content-container ');
+                        if (contentContianer) {
+                            var clickEvent = new Event('click');
+                            contentContianer.dispatchEvent(clickEvent);
+                        }
+                    }
+                } else {
                     this.disableLectureNote();
                     triggerEvent.call(this.player, this.player.media, 'lecturenotecreate', true, {
                         lectureNote: {
@@ -7640,6 +7654,16 @@ typeof navigator === "object" && (function (global, factory) {
                     }
                 }
                 return false;
+            }
+        }, {
+            key: 'getSameTimeLectureNote',
+            value: function getSameTimeLectureNote(time) {
+                for (var i = 0; i < this.lectureNoteList.length; i += 1) {
+                    if (this.lectureNoteList[i].time === time) {
+                        return this.lectureNoteList[i];
+                    }
+                }
+                return null;
             }
 
             /**
@@ -7808,6 +7832,21 @@ typeof navigator === "object" && (function (global, factory) {
                         toggleClass(contentContainer, 'lecture-note__content-container--edit', false);
                         lectureNote.showStatus = LectureNoteModel.ShowStatus.Hide;
                     }
+                });
+
+                contentTextarea.addEventListener('blur', function (e) {
+                    lectureNote.note = contentTextarea.value;
+                    contentShowText.innerHTML = lectureNote.note;
+                    toggleClass(contentContainer, 'lecture-note__content-container--edit', false);
+                    lectureNote.showStatus = LectureNoteModel.ShowStatus.Hide;
+                    toggleClass(lectureNoteContainer, 'hover', true);
+                    cancelTimeout = setTimeout(function () {
+                        toggleClass(lectureNoteContainer, 'hover', false);
+                    }, 1000);
+                    triggerEvent.call(_this.player, _this.player.media, 'lecturenoteupdate', true, {
+                        lectureNote: lectureNote
+                    });
+                    e.preventDefault();
                 });
 
                 mark.addEventListener('mouseenter', function (e) {
