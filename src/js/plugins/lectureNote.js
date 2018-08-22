@@ -102,7 +102,17 @@ export default class LectureNote {
 
     addLectureNote () {
         const time = Math.round(this.player.currentTime);
-        if (this.hasSameTimeLectureNote(time)) {
+        const note = this.getSameTimeLectureNote(time);
+        if (note) {
+
+            const lectureNoteContainer = getElement.call(this.player, '.lecture-note[data-id="' + note._id + '"]');
+            if (lectureNoteContainer) {
+                const contentContianer = lectureNoteContainer.querySelector('lecture-note__content-container ');
+                if (contentContianer) {
+                    const clickEvent = new Event('click');
+                    contentContianer.dispatchEvent(clickEvent)
+                }
+            }
 
         } else {
             this.disableLectureNote();
@@ -145,6 +155,15 @@ export default class LectureNote {
             }
         }
         return false;
+    }
+
+    getSameTimeLectureNote (time) {
+        for (let i = 0; i < this.lectureNoteList.length; i += 1) {
+            if (this.lectureNoteList[i].time === time) {
+                return this.lectureNoteList[i];
+            }
+        }
+        return null;
     }
 
     /**
@@ -302,6 +321,21 @@ export default class LectureNote {
                 toggleClass(contentContainer, 'lecture-note__content-container--edit', false);
                 lectureNote.showStatus = LectureNoteModel.ShowStatus.Hide;
             }
+        });
+
+        contentTextarea.addEventListener('blur', (e) => {
+            lectureNote.note = contentTextarea.value;
+            contentShowText.innerHTML = lectureNote.note;
+            toggleClass(contentContainer, 'lecture-note__content-container--edit', false);
+            lectureNote.showStatus = LectureNoteModel.ShowStatus.Hide;
+            toggleClass(lectureNoteContainer, 'hover', true);
+            cancelTimeout = setTimeout(() => {
+                toggleClass(lectureNoteContainer, 'hover', false);
+            }, 1000);
+            triggerEvent.call(this.player, this.player.media, 'lecturenoteupdate', true, {
+                lectureNote: lectureNote,
+            });
+            e.preventDefault();
         });
 
         mark.addEventListener('mouseenter', (e) => {
