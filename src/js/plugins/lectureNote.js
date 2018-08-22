@@ -111,10 +111,9 @@ export default class LectureNote {
         const time = Math.round(this.player.currentTime);
         const note = this.getSameTimeLectureNote(time);
         if (note) {
-
             const lectureNoteContainer = getElement.call(this.player, `.lecture-note[data-id="${  note._id  }"]`);
             if (lectureNoteContainer) {
-                const contentContianer = lectureNoteContainer.querySelector('lecture-note__content-container ');
+                const contentContianer = lectureNoteContainer.querySelector('.lecture-note__content-container');
                 if (contentContianer) {
                     const clickEvent = new Event('click');
                     contentContianer.dispatchEvent(clickEvent);
@@ -353,6 +352,13 @@ export default class LectureNote {
                 cancelTimeout = null;
             }
             toggleClass(contentContainer, 'lecture-note__content-container--show', true);
+            const container = this.getContainer();
+            const leftLimit = ((container.offsetWidth - 200) / container.offsetWidth) * 100 || 0;
+            if (percent > leftLimit) {
+                toggleClass(contentContainer, 'lecture-note__content-container--near-end', true);
+            } else {
+                toggleClass(contentContainer, 'lecture-note__content-container--near-end', false);
+            }
             e.preventDefault();
         });
 
@@ -370,6 +376,13 @@ export default class LectureNote {
                 cancelTimeout = null;
             }
             toggleClass(contentContainer, 'lecture-note__content-container--show', true);
+            const container = this.getContainer();
+            const leftLimit = ((container.offsetWidth - 200) / container.offsetWidth) * 100 || 0;
+            if (percent > leftLimit) {
+                toggleClass(contentContainer, 'lecture-note__content-container--near-end', true);
+            } else {
+                toggleClass(contentContainer, 'lecture-note__content-container--near-end', false);
+            }
             e.preventDefault();
         });
 
@@ -381,7 +394,7 @@ export default class LectureNote {
             e.preventDefault();
         });
 
-        lectureNoteContainer.style.left = `calc(${(lectureNote.time / duration) * 100 || 0}%)`;
+        lectureNoteContainer.style.left = `calc(${percent}%)`;
         return lectureNoteContainer;
     }
 }
