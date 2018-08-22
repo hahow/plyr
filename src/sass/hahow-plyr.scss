@@ -262,6 +262,11 @@ $plyr-font-size-captions-small: 24px;
     display: flex;
 }
 
+.lecture-note__content-container.lecture-note__content-container--near-end {
+    left: auto;
+    right: 0;
+}
+
 .lecture-note__content-show-text {
     color: #000;
     margin: 2px 5px;

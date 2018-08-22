@@ -7861,6 +7861,13 @@ typeof navigator === "object" && (function (global, factory) {
                         cancelTimeout = null;
                     }
                     toggleClass(contentContainer, 'lecture-note__content-container--show', true);
+                    var container = _this.getContainer();
+                    var leftLimit = (container.offsetWidth - 200) / container.offsetWidth * 100 || 0;
+                    if (percent > leftLimit) {
+                        toggleClass(contentContainer, 'lecture-note__content-container--near-end', true);
+                    } else {
+                        toggleClass(contentContainer, 'lecture-note__content-container--near-end', false);
+                    }
                     e.preventDefault();
                 });
 
@@ -7878,6 +7885,13 @@ typeof navigator === "object" && (function (global, factory) {
                         cancelTimeout = null;
                     }
                     toggleClass(contentContainer, 'lecture-note__content-container--show', true);
+                    var container = _this.getContainer();
+                    var leftLimit = (container.offsetWidth - 200) / container.offsetWidth;
+                    if (percent > leftLimit) {
+                        toggleClass(contentContainer, 'lecture-note__content-container--near-end', true);
+                    } else {
+                        toggleClass(contentContainer, 'lecture-note__content-container--near-end', false);
+                    }
                     e.preventDefault();
                 });
 
@@ -7889,7 +7903,7 @@ typeof navigator === "object" && (function (global, factory) {
                     e.preventDefault();
                 });
 
-                lectureNoteContainer.style.left = 'calc(' + (lectureNote.time / duration * 100 || 0) + '%)';
+                lectureNoteContainer.style.left = 'calc(' + percent + '%)';
                 return lectureNoteContainer;
             }
         }]);
