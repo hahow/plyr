@@ -75,6 +75,19 @@ const hahow = {
         // Media duration display
         bottomLeft.appendChild(controls.createTime.call(this, 'duration'));
 
+        // Add lecture note button
+        const addLecturneNoteBtn = controls.createButton.call(this, 'add-lecture-note', {
+            class: 'plyr__add-lecture-note hidden',
+        });
+        addLecturneNoteBtn.appendChild(createElement('span', {}, '筆記標註'));
+        bottomRight.appendChild(addLecturneNoteBtn);
+
+        addLecturneNoteBtn.addEventListener('click', (e) => {
+            this.pause();
+            this.lectureNote.addLectureNote();
+            e.stopPropagation();
+        });
+
         // Toggle mute button
         bottomRight.appendChild(controls.createButton.call(this, 'mute'));
 

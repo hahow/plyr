@@ -11,17 +11,19 @@ import { getProviderByUrl, providers, types } from './config/types';
 import Console from './console';
 import controls from './controls';
 import Fullscreen from './fullscreen';
+import hahow from './hahowCustomControl';
 import Listeners from './listeners';
+import logo from './logo';
 import media from './media';
 import Ads from './plugins/ads';
+
+import LectureNote from './plugins/lectureNote';
 import source from './source';
 import Storage from './storage';
 import support from './support';
 import ui from './ui';
-import logo from './logo';
-import hahow from './hahowCustomControl';
 import { closest } from './utils/arrays';
-import { setAttributes, createElement, hasClass, removeElement, replaceElement, toggleClass, wrap } from './utils/elements';
+import { createElement, hasClass, removeElement, replaceElement, toggleClass, wrap } from './utils/elements';
 import { off, on, once, triggerEvent, unbindListeners } from './utils/events';
 import is from './utils/is';
 import loadSprite from './utils/loadSprite';
@@ -299,6 +301,8 @@ class Plyr {
 
         // Setup ads if provided
         this.ads = new Ads(this);
+
+        this.lectureNote = new LectureNote(this);
 
         // Autoplay if required
         if (this.config.autoplay) {

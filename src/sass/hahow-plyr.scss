@@ -152,3 +152,131 @@ $plyr-font-size-captions-small: 24px;
         display: none !important;
     }
 }
+
+// Lecture Note Feature !!!!!
+
+// 修正 progress bar 超過邊界
+.plyr__progress input[type=range] {
+    width: 100%;
+}
+
+// 筆記標註按鈕
+.plyr__control.plyr__add-lecture-note {
+    align-items: center;
+    display: flex;
+    justify-content: space-around;
+
+    span {
+        line-height: 1;
+    }
+
+    svg {
+        margin-right: 2px;
+    }
+
+    &.disable {
+        color: #aaa;
+        &:hover {
+            background: transparent;
+            color: #aaa;
+        }
+    }
+
+    &.hidden {
+        display: none;
+    }
+}
+
+// 重疊於播放進度條上面
+.plyr__lecture-note-container {
+    height: 10px;
+    left: -2px;
+    position: absolute;
+    top: -4px;
+    width: calc(100% - 14px);
+    z-index: 10;
+
+    &.hidden {
+        display: none;
+    }
+
+    .lecture-note {
+        position: absolute;
+    }
+}
+
+.lecture-note .lecture-note__mark {
+    background-color: #FFB115;
+    cursor: pointer;
+    display: inline-block;
+    height: 6px;
+    position: absolute;
+    top: 11px;
+    width: 3px;
+    z-index: 5;
+    &:hover {
+        background-color: #FFB115;
+        border-radius: 50%;
+        transform: scale(2.5);
+        transition: transform 250ms ease;
+        width: 6px;
+    }
+}
+
+.lecture-note__content-container {
+    align-items: center;
+    background-color: #fff;
+    border-radius: 5px;
+    bottom: 0;
+    box-shadow: 0 0 0 rgba(0, 0, 0, .67);
+    display: none;
+    left: 0;
+    padding: 2px 4px 2px 2px;
+    position: absolute;
+    z-index: 10;
+
+    svg {
+        color: #000;
+        height: 18px;
+        width: 18px;
+    }
+
+    .lecture-note__content-textarea {
+        display: none;
+    }
+    .lecture-note__content-show-text {
+        display: inline-block;
+        min-width: 160px;
+        word-break: break-all;
+    }
+
+    &.lecture-note__content-container--edit {
+        .lecture-note__content-textarea { display: inline-block }
+        .lecture-note__content-show-text { display: none }
+    }
+}
+
+.lecture-note__content-container.lecture-note__content-container--show,
+.lecture-note__content-container.lecture-note__content-container--edit {
+    display: flex;
+}
+
+.lecture-note__content-show-text {
+    color: #000;
+    margin: 2px 5px;
+    text-align: left;
+}
+
+.lecture-note__content-textarea {
+    border: none 0;
+    color: #000;
+    min-width: 160px;
+    outline: none;
+    overflow: hidden;
+    resize: none;
+}
+
+.lecture-note__trash-icon-wrapper {
+    line-height: 1;
+}
+//// Lecture Note Feature !!!!!
