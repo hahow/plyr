@@ -10339,15 +10339,22 @@ typeof navigator === "object" && (function (global, factory) {
 	                        this.player.loop = !this.player.loop;
 	                        break;
 
+	                    case 78:
+	                        // N key
+	                        if (this.player.lectureNote && this.player.lectureNote.isLoadedLectureNote && this.player.lectureNote.addLectureNoteButtonStatus === 'enable') {
+	                            this.player.lectureNote.addLectureNote();
+	                        }
+	                        break;
+
 	                    /* case 73:
-	                        this.setLoop('start');
-	                        break;
-	                     case 76:
-	                        this.setLoop();
-	                        break;
-	                     case 79:
-	                        this.setLoop('end');
-	                        break; */
+	                    this.setLoop('start');
+	                    break;
+	                    case 76:
+	                    this.setLoop();
+	                    break;
+	                    case 79:
+	                    this.setLoop('end');
+	                    break; */
 
 	                    default:
 	                        break;
@@ -12996,10 +13003,9 @@ typeof navigator === "object" && (function (global, factory) {
 	            var time = Math.round(this.player.currentTime);
 	            var note = this.getSameTimeLectureNote(time);
 	            if (note) {
-
 	                var lectureNoteContainer = getElement.call(this.player, '.lecture-note[data-id="' + note._id + '"]');
 	                if (lectureNoteContainer) {
-	                    var contentContianer = lectureNoteContainer.querySelector('lecture-note__content-container ');
+	                    var contentContianer = lectureNoteContainer.querySelector('.lecture-note__content-container');
 	                    if (contentContianer) {
 	                        var clickEvent = new Event('click');
 	                        contentContianer.dispatchEvent(clickEvent);
@@ -13277,7 +13283,7 @@ typeof navigator === "object" && (function (global, factory) {
 	                }
 	                toggleClass(contentContainer, 'lecture-note__content-container--show', true);
 	                var container = _this.getContainer();
-	                var leftLimit = (container.offsetWidth - 200) / container.offsetWidth;
+	                var leftLimit = (container.offsetWidth - 200) / container.offsetWidth * 100 || 0;
 	                if (percent > leftLimit) {
 	                    toggleClass(contentContainer, 'lecture-note__content-container--near-end', true);
 	                } else {

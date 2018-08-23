@@ -141,7 +141,14 @@ class Listeners {
                     this.player.loop = !this.player.loop;
                     break;
 
-                /* case 73:
+                case 78:
+                    // N key
+                    if (this.player.lectureNote && this.player.lectureNote.isLoadedLectureNote && this.player.lectureNote.addLectureNoteButtonStatus === 'enable') {
+                        this.player.lectureNote.addLectureNote();
+                    }
+                    break;
+
+                    /* case 73:
                     this.setLoop('start');
                     break;
 
