@@ -4174,7 +4174,6 @@ typeof navigator === "object" && (function (global, factory) {
             bottomRight.appendChild(addLecturneNoteBtn);
 
             addLecturneNoteBtn.addEventListener('click', function (e) {
-                _this.pause();
                 _this.lectureNote.addLectureNote();
                 e.stopPropagation();
             });
@@ -7809,6 +7808,7 @@ typeof navigator === "object" && (function (global, factory) {
                         } else {
                             _this.beforeEditLectureNotePlayerState = 'pause';
                         }
+                        _this.player.pause();
                         toggleClass(contentContainer, 'lecture-note__content-container--edit', true);
                         lectureNote.showStatus = LectureNoteModel.ShowStatus.Edit;
                         contentTextarea.style.height = 'auto';
@@ -7850,6 +7850,9 @@ typeof navigator === "object" && (function (global, factory) {
                         triggerEvent.call(_this.player, _this.player.media, 'lecturenoteupdate', true, {
                             lectureNote: lectureNote
                         });
+                        console.group('keydown enter');
+                        console.log(_this.beforeAddLectureNotePlayerState, _this.beforeEditLectureNotePlayerState);
+                        console.groupEnd();
                         try {
                             if (_this.beforeAddLectureNotePlayerState) {
                                 if (_this.beforeAddLectureNotePlayerState === 'playing') {

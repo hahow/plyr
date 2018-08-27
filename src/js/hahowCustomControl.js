@@ -83,7 +83,6 @@ const hahow = {
         bottomRight.appendChild(addLecturneNoteBtn);
 
         addLecturneNoteBtn.addEventListener('click', (e) => {
-            this.pause();
             this.lectureNote.addLectureNote();
             e.stopPropagation();
         });
