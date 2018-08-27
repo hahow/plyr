@@ -35,6 +35,9 @@ export default class LectureNote {
         this.lectureNoteContainer = null;
         this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Hidden;
         this.isLoadedLectureNote = false;
+
+        this.beforeAddLectureNotePlayerState = null;
+        this.beforeEditLectureNotePlayerState = null;
     }
 
     setup () {
@@ -108,6 +111,14 @@ export default class LectureNote {
     }
 
     addLectureNote () {
+        if (this.player.playing) {
+            this.beforeAddLectureNotePlayerState = 'playing';
+        } else {
+            this.beforeAddLectureNotePlayerState = 'pause';
+        }
+
+        this.player.pause();
+
         const time = Math.round(this.player.currentTime);
         const note = this.getSameTimeLectureNote(time);
         if (note) {
@@ -276,11 +287,18 @@ export default class LectureNote {
 
         // 點擊 container 開啟編輯模式
         contentContainer.addEventListener('click', (e) => {
-            toggleClass(contentContainer, 'lecture-note__content-container--edit', true);
-            lectureNote.showStatus = LectureNoteModel.ShowStatus.Edit;
-            contentTextarea.style.height = 'auto';
-            contentTextarea.style.height = `${contentTextarea.scrollHeight}px`;
-            contentTextarea.focus();
+            if (lectureNote.showStatus !== LectureNoteModel.ShowStatus.Edit) {
+                if (this.player.playing) {
+                    this.beforeEditLectureNotePlayerState = 'playing';
+                } else {
+                    this.beforeEditLectureNotePlayerState = 'pause';
+                }
+                toggleClass(contentContainer, 'lecture-note__content-container--edit', true);
+                lectureNote.showStatus = LectureNoteModel.ShowStatus.Edit;
+                contentTextarea.style.height = 'auto';
+                contentTextarea.style.height = `${contentTextarea.scrollHeight}px`;
+                contentTextarea.focus();
+            }
         });
 
 
@@ -318,7 +336,18 @@ export default class LectureNote {
                     lectureNote,
                 });
                 try{
-                    this.player.play();
+                    if (this.beforeAddLectureNotePlayerState) {
+                        if (this.beforeAddLectureNotePlayerState === 'playing') {
+                            this.player.play();
+                        }
+                        this.beforeAddLectureNotePlayerState = null;
+                    }
+                    if (this.beforeEditLectureNotePlayerState) {
+                        if (this.beforeEditLectureNotePlayerState === 'playing') {
+                            this.player.play();
+                        }
+                        this.beforeEditLectureNotePlayerState = null;
+                    }
                 } catch (e) {
                     // ignore
                 }
