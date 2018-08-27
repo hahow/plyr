@@ -293,6 +293,7 @@ export default class LectureNote {
                 } else {
                     this.beforeEditLectureNotePlayerState = 'pause';
                 }
+                this.player.pause();
                 toggleClass(contentContainer, 'lecture-note__content-container--edit', true);
                 lectureNote.showStatus = LectureNoteModel.ShowStatus.Edit;
                 contentTextarea.style.height = 'auto';
@@ -335,6 +336,9 @@ export default class LectureNote {
                 triggerEvent.call(this.player, this.player.media, 'lecturenoteupdate', true, {
                     lectureNote,
                 });
+                console.group('keydown enter');
+                console.log(this.beforeAddLectureNotePlayerState, this.beforeEditLectureNotePlayerState);
+                console.groupEnd();
                 try{
                     if (this.beforeAddLectureNotePlayerState) {
                         if (this.beforeAddLectureNotePlayerState === 'playing') {
