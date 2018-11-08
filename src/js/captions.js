@@ -14,6 +14,7 @@ import {
     insertAfter,
     removeElement,
     toggleClass,
+    hasClass,
 } from './utils/elements';
 import { on, triggerEvent } from './utils/events';
 import fetch from './utils/fetch';
@@ -39,6 +40,7 @@ const captions = {
                 this.config.settings.includes('captions')
             ) {
                 controls.setCaptionsMenu.call(this);
+                controls.setCaptionsPositionMenu.call(this);
             }
 
             return;
@@ -105,6 +107,8 @@ const captions = {
             languages,
         });
 
+        captions.setPosition.call(this, this.captionPosition);
+
         // Watch changes to textTracks and update captions menu
         if (this.isHTML5) {
             const trackEvents = this.config.captions.update ? 'addtrack removetrack' : 'removetrack';
@@ -148,8 +152,13 @@ const captions = {
         // Enable or disable captions based on track length
         toggleClass(this.elements.container, this.config.classNames.captions.enabled, !is.empty(tracks));
 
-        // Update available languages in list
-        if ((this.config.controls || []).includes('settings') && this.config.settings.includes('captions')) {
+        // for custom control
+        if (is.string(this.config.controls) || is.function(this.config.controls)) {
+            if (this.config.customMenu && is.function(this.config.customMenu.caption)) {
+                this.config.customMenu.caption.call(this);
+            }
+        } else if ((this.config.controls || []).includes('settings') && this.config.settings.includes('captions')) {
+            // Update available languages in list
             controls.setCaptionsMenu.call(this);
         }
     },
@@ -232,6 +241,7 @@ const captions = {
         if (this.captions.currentTrack !== index) {
             this.captions.currentTrack = index;
             const track = tracks[index];
+            track.mode = 'showing';
             const { language } = track || {};
 
             // Store reference to node for invalidation on remove
@@ -378,6 +388,38 @@ const captions = {
 
             // Trigger event
             triggerEvent.call(this, this.media, 'cuechange');
+        }
+    },
+
+    setPosition(position) {
+        // if already setup correct class name, just ignore
+        if (hasClass(this.elements.captions, this.config.classNames.captionPosition.replace('{0}', 'top'))) {
+            if (position === 'top') return;
+        } else if (position === 'bottom') {
+            return;
+        }
+        toggleClass(this.elements.captions, this.config.classNames.captionPosition.replace('{0}', 'top'));
+
+        // Update settings menu
+        controls.updateSetting.call(this, 'caption-position');
+    },
+
+    setDefault(defaultLanguage = null) {
+        const captionsActive = this.storage.get('captions');
+        const captionsLanguage = this.storage.get('language') || defaultLanguage;
+        // if storage has caption active and,
+        if (
+            (is.boolean(captionsActive) && captionsActive && is.string(captionsLanguage)) ||
+            (!is.boolean(captionsActive) && is.string(captionsLanguage))
+        ) {
+            const tracks = captions.getTracks.call(this, true);
+            const findLanguageList = [captionsLanguage];
+            if (defaultLanguage) {
+                findLanguageList.push(defaultLanguage);
+            }
+            Array.prototype.push.apply(findLanguageList, this.captions.languages);
+            const track = captions.findTrack.call(this, findLanguageList, true);
+            captions.set.call(this, tracks.indexOf(track));
         }
     },
 };

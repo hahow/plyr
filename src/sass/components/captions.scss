@@ -57,3 +57,11 @@
     transform: translateY(-($plyr-control-spacing * 4));
 }
 
+.plyr__caption_position__top {
+    bottom: inherit;
+    top: 0;
+}
+
+.plyr__captions.plyr__caption_position__top {
+    transform: none;
+}

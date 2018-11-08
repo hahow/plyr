@@ -65,6 +65,14 @@ const defaults = {
     // Blank video (used to prevent errors on source change)
     blankVideo: 'https://cdn.plyr.io/static/blank.mp4',
 
+    logo: {
+        url: undefined,
+        link: undefined,
+    },
+
+    // fullscreen container, default is plyr container
+    fullscreenContainer: undefined,
+
     // Quality default
     quality: {
         default: 576,
@@ -100,6 +108,7 @@ const defaults = {
     captions: {
         active: false,
         language: 'auto',
+        position: 'bottom',
         // Listen to new tracks added after Plyr is initialized.
         // This is needed for streaming captions, but may result in unselectable options
         update: false,
@@ -130,13 +139,14 @@ const defaults = {
         'mute',
         'volume',
         'captions',
+        'caption-position',
         'settings',
         'pip',
         'airplay',
-        // 'download',
+        'zoom',
         'fullscreen',
     ],
-    settings: ['captions', 'quality', 'speed'],
+    settings: ['captions', 'caption-position', 'quality', 'speed'],
 
     // Localisation
     i18n: {
@@ -159,8 +169,16 @@ const defaults = {
         download: 'Download',
         enterFullscreen: 'Enter fullscreen',
         exitFullscreen: 'Exit fullscreen',
+        enterZoom: 'zoom',
+        exitZoom: 'reset screen size',
         frameTitle: 'Player for {title}',
         captions: 'Captions',
+        noCaptions: 'No captions',
+        'caption-position': 'Caption Position',
+        captionPositionLabel: {
+            top: 'Top',
+            bottom: 'Bottom',
+        },
         settings: 'Settings',
         menuBack: 'Go back to previous menu',
         speed: 'Speed',
@@ -200,6 +218,11 @@ const defaults = {
         googleIMA: {
             sdk: 'https://imasdk.googleapis.com/js/sdkloader/ima3.js',
         },
+    },
+
+    // custom control menu setup function
+    customMenu: {
+        caption: null,
     },
 
     // Custom control listeners
@@ -252,6 +275,8 @@ const defaults = {
         'download',
         'enterfullscreen',
         'exitfullscreen',
+        'enterzoomfullscreen',
+        'exitzoomfullscreen',
         'captionsenabled',
         'captionsdisabled',
         'languagechange',
@@ -285,6 +310,14 @@ const defaults = {
         controls: {
             container: null,
             wrapper: '.plyr__controls',
+            layer: {
+                topLayer: '.plyr__controls-top',
+                bottomLayer: '.plyr__controls-bottom',
+            },
+            bottom: {
+                left: '.plyr__controls-bottom-left',
+                right: '.plyr__controls-bottom-right',
+            },
         },
         labels: '[data-plyr]',
         buttons: {
@@ -296,6 +329,7 @@ const defaults = {
             mute: '[data-plyr="mute"]',
             captions: '[data-plyr="captions"]',
             download: '[data-plyr="download"]',
+            zoom: '[data-plyr="zoom"]',
             fullscreen: '[data-plyr="fullscreen"]',
             pip: '[data-plyr="pip"]',
             airplay: '[data-plyr="airplay"]',
@@ -307,6 +341,7 @@ const defaults = {
             volume: '[data-plyr="volume"]',
             speed: '[data-plyr="speed"]',
             language: '[data-plyr="language"]',
+            'caption-position': '[data-plyr="caption-position"]',
             quality: '[data-plyr="quality"]',
         },
         display: {
@@ -352,6 +387,7 @@ const defaults = {
         display: {
             time: 'plyr__time',
         },
+        logo: 'plyr--logo',
         menu: {
             value: 'plyr__menu__value',
             badge: 'plyr__badge',
@@ -361,6 +397,7 @@ const defaults = {
             enabled: 'plyr--captions-enabled',
             active: 'plyr--captions-active',
         },
+        captionPosition: 'plyr__caption_position__{0}',
         fullscreen: {
             enabled: 'plyr--fullscreen-enabled',
             fallback: 'plyr--fullscreen-fallback',
@@ -374,6 +411,7 @@ const defaults = {
             active: 'plyr--airplay-active',
         },
         tabFocus: 'plyr__tab-focus',
+        outerContainer: 'plyr__outer-container',
     },
 
     // Embed attributes

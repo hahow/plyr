@@ -2,12 +2,14 @@
 // Plyr source update
 // ==========================================================================
 
+import captions from './captions';
 import { providers } from './config/types';
+import controls from './controls';
 import html5 from './html5';
 import media from './media';
 import support from './support';
 import ui from './ui';
-import { createElement, insertElement, removeElement } from './utils/elements';
+import { createElement, insertElement, removeElement, setAttributes } from './utils/elements';
 import is from './utils/is';
 import { getDeep } from './utils/objects';
 
@@ -36,21 +38,29 @@ const source = {
         // Cancel current network requests
         html5.cancelRequests.call(this);
 
+        const tracks = Array.from(this.media.querySelectorAll('track'));
+        removeElement(tracks);
+        this.captions.currentTrack = -1;
+
         // Destroy instance and re-setup
         this.destroy.call(
             this,
             () => {
+                this.lectureNote.clear();
                 // Reset quality options
                 this.options.quality = [];
 
                 // Remove elements
                 removeElement(this.media);
-                this.media = null;
 
                 // Reset class name
                 if (is.element(this.elements.container)) {
                     this.elements.container.removeAttribute('class');
                 }
+
+                // retain old provider and type
+                const prevType = this.type;
+                const prevProvider = this.provider;
 
                 // Set the type and provider
                 const { sources, type } = input;
@@ -63,9 +73,19 @@ const source = {
                     type,
                     // Check for support
                     supported: support.check(type, provider, this.config.playsinline),
-                    // Create new element
-                    media: createElement(tagName, attributes),
                 });
+
+                if (prevType === type && prevProvider === provider && provider === providers.html5) {
+                    /**
+                     * if provider is html5 and setting is same as prev source,
+                     * retain media element (because ios system has limited resource,
+                     * can't create many video resource)
+                     */
+                    setAttributes(this.media, attributes);
+                } else {
+                    this.media = null;
+                    this.media = createElement(tagName, attributes);
+                }
 
                 // Inject the new element
                 this.elements.container.appendChild(this.media);
@@ -99,10 +119,12 @@ const source = {
 
                 // Restore class hook
                 ui.addStyleHook.call(this);
+                ui.addStylehookToFullscreenContainer.call(this);
 
                 // Set new sources for html5
                 if (this.isHTML5) {
                     source.insertElements.call(this, 'source', sources);
+                    this.media.setAttribute('src', sources[0].src);
                 }
 
                 // Set video title
@@ -111,11 +133,23 @@ const source = {
                 // Set up from scratch
                 media.setup.call(this);
 
+                // restore video quality
+                const quality = this.storage.get('quality');
+                if (is.number(quality)) {
+                    this.media.quality = quality;
+                }
+
+                let defaultCaption = null;
                 // HTML5 stuff
                 if (this.isHTML5) {
                     // Setup captions
                     if ('tracks' in input) {
                         source.insertElements.call(this, 'track', input.tracks);
+                        const defaultTracks = input.tracks.filter(track => track.default);
+                        if (defaultTracks.length > 0 ){
+                            defaultCaption = defaultTracks[0].srclang;
+                        }
+                        captions.update.call(this);
                     }
 
                     // Load HTML5 sources
@@ -130,6 +164,13 @@ const source = {
 
                 // Update the fullscreen support
                 this.fullscreen.update();
+                captions.setDefault.call(this, defaultCaption);
+                const speed = this.storage.get('speed');
+                if (is.number(speed)) {
+                    this.speed = speed;
+                    controls.updateSetting.call(this, 'speed', speed);
+                }
+                this.lectureNote.setupUI();
             },
             true,
         );

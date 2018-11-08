@@ -18,6 +18,13 @@ const ui = {
         toggleClass(this.elements.container, this.config.classNames.uiSupported, this.supported.ui);
     },
 
+    addStylehookToFullscreenContainer () {
+        // append plyr__outer-container class name to outer container
+        if (this.config.fullscreenContainer) {
+            toggleClass(this.config.fullscreenContainer, this.config.classNames.outerContainer, true);
+        }
+    },
+
     // Toggle native HTML5 media controls
     toggleNativeControls(toggle = false) {
         if (toggle && this.isHTML5) {
@@ -39,6 +46,8 @@ const ui = {
 
             // Restore native controls
             ui.toggleNativeControls.call(this, true);
+
+            this.ready = true;
 
             // Bail
             return;

@@ -12,9 +12,12 @@ import { getProviderByUrl, providers, types } from './config/types';
 import Console from './console';
 import controls from './controls';
 import Fullscreen from './fullscreen';
+import hahow from './hahowCustomControl';
 import Listeners from './listeners';
+import logo from './logo';
 import media from './media';
 import Ads from './plugins/ads';
+import LectureNote from './plugins/lectureNote';
 import source from './source';
 import Storage from './storage';
 import support from './support';
@@ -268,6 +271,7 @@ class Plyr {
 
         // Add style hook
         ui.addStyleHook.call(this);
+        ui.addStylehookToFullscreenContainer.call(this);
 
         // Setup media
         media.setup.call(this);
@@ -285,6 +289,8 @@ class Plyr {
             ui.build.call(this);
         }
 
+        logo.setup.call(this);
+
         // Container listeners
         this.listeners.container();
 
@@ -298,6 +304,8 @@ class Plyr {
         if (this.config.ads.enabled) {
             this.ads = new Ads(this);
         }
+
+        this.lectureNote = new LectureNote(this);
 
         // Autoplay if required
         if (this.config.autoplay) {
@@ -578,6 +586,13 @@ class Plyr {
         this.increaseVolume(-step);
     }
 
+    set fullscreenContainer (container) {
+        if (is.element(container)) {
+            this.config.fullscreenContainer = container;
+            ui.addStylehookToFullscreenContainer.call(this);
+        }
+    }
+
     /**
      * Set muted state
      * @param {boolean} mute
@@ -696,15 +711,10 @@ class Plyr {
             config.default,
         ].find(is.number);
 
-        let updateStorage = true;
-
         if (!options.includes(quality)) {
             const value = closest(options, quality);
             this.debug.warn(`Unsupported quality option: ${quality}, using ${value} instead`);
             quality = value;
-
-            // Don't update storage if quality is not supported
-            updateStorage = false;
         }
 
         // Update config
@@ -714,9 +724,7 @@ class Plyr {
         this.media.quality = quality;
 
         // Save to storage
-        if (updateStorage) {
-            this.storage.set({ quality });
-        }
+        this.storage.set({ quality });
     }
 
     /**
@@ -873,6 +881,18 @@ class Plyr {
     get currentTrack() {
         const { toggled, currentTrack } = this.captions;
         return toggled ? currentTrack : -1;
+    }
+
+    set captionPosition(input) {
+        this.captions.position = input;
+        this.storage.set({
+            captionPosition: input,
+        });
+        captions.setPosition.call(this, this.captions.position);
+    }
+
+    get captionPosition() {
+        return this.storage.get('captionPosition') || this.config.captions.position;
     }
 
     /**
@@ -1163,5 +1183,5 @@ class Plyr {
 }
 
 Plyr.defaults = cloneDeep(defaults);
-
+Plyr.hahow = hahow;
 export default Plyr;

@@ -4149,6 +4149,7 @@ typeof navigator === "object" && (function () {
 	        tooltips: {
 	          controls: true
 	        },
+	        clickToPlay: false,
 	        captions: {
 	          active: true
 	        },

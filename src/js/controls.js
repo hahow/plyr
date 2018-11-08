@@ -217,6 +217,14 @@ const controls = {
                 props.iconPressed = 'captions-on';
                 break;
 
+            case 'zoom':
+                props.toggle = true;
+                props.label = 'enterZoom';
+                props.labelPressed = 'exitZoom';
+                props.icon = 'enter-zoom';
+                props.iconPressed = 'exit-zoom';
+                break;
+
             case 'fullscreen':
                 props.toggle = true;
                 props.label = 'enterFullscreen';
@@ -231,6 +239,11 @@ const controls = {
                 props.label = 'play';
                 props.icon = 'play';
                 break;
+
+            case 'add-lecture-note':
+                type = 'add-lecture-note';
+                props.label = '筆記標註';
+                props.icon = 'add-lecture-note';
 
             default:
                 if (is.empty(props.label)) {
@@ -800,6 +813,8 @@ const controls = {
 
         if (setting === 'captions') {
             value = this.currentTrack;
+        } else if (setting === 'caption-position') {
+            value = this.setCaptionsPositionMenu;
         } else {
             value = !is.empty(input) ? input : this[setting];
 
@@ -815,7 +830,9 @@ const controls = {
             }
 
             // Disabled value
-            if (!this.config[setting].options.includes(value)) {
+            // We generate resolution option from real contents.
+            // Therefore, bypasss checking on ‘quality’ config.
+            if (setting !== 'quality' && !this.config[setting].options.includes(value)) {
                 this.debug.warn(`Disabled value of '${value}' for ${setting}`);
                 return;
             }
@@ -864,6 +881,9 @@ const controls = {
 
             case 'captions':
                 return captions.getLabel.call(this);
+
+            case 'caption-position':
+                return i18n.get(`captionPositionLabel.${value}`, this.config)
 
             default:
                 return null;
@@ -1029,7 +1049,39 @@ const controls = {
         controls.updateSetting.call(this, type, list);
     },
 
-    // Set a list of available captions languages
+    setCaptionsPositionMenu() {
+        if (!this.config.controls.includes('caption-position')) {
+            return;
+        }
+
+        if (!is.element(this.elements.settings.panes['caption-position'])) {
+            return;
+        }
+
+        const type = 'caption-position';
+
+        controls.toggleTab.call(this, type, true);
+
+        // Get the list to populate
+        const list = this.elements.settings.panes['caption-position'].querySelector('ul');
+
+        // Empty the menu
+        emptyElement(list);
+
+        const positions = ['top', 'bottom'];
+
+        // Create items
+        positions.forEach(position => {
+            controls.createMenuItem.call(this, {
+                value: position,
+                list,
+                type,
+                title: controls.getLabel.call(this, 'caption-position', position),
+            });
+        });
+        controls.updateSetting.call(this, type, list);
+    },
+
     setSpeedMenu(options) {
         // Menu required
         if (!is.element(this.elements.settings.panels.speed)) {
@@ -1534,6 +1586,11 @@ const controls = {
             }
 
             container.appendChild(controls.createButton.call(this, 'download', attributes));
+        }
+
+        // Toggle zoom button
+        if (this.config.controls.includes('zoom')) {
+            container.appendChild(controls.createButton.call(this, 'zoom'));
         }
 
         // Toggle fullscreen button

@@ -10,19 +10,48 @@ import { hasClass, toggleClass, trapFocus } from './utils/elements';
 import { on, triggerEvent } from './utils/events';
 import is from './utils/is';
 
-function onChange() {
+function onChange(isZoom = false) {
     if (!this.enabled) {
         return;
     }
 
-    // Update toggle button
-    const button = this.player.elements.buttons.fullscreen;
-    if (is.element(button)) {
-        button.pressed = this.active;
+    if (!isZoom) {
+        // Update toggle button
+        const button = this.player.elements.buttons.fullscreen;
+        if (is.element(button)) {
+            button.pressed = this.active;
+        }
+    } else {
+        const button = this.player.elements.buttons.zoom;
+        if (is.element(button)) {
+            button.pressed = this.zoomActive;
+        }
     }
 
     // Trigger an event
-    triggerEvent.call(this.player, this.target, this.active ? 'enterfullscreen' : 'exitfullscreen', true);
+    if (this.isIosNative || !this.isOutterContainerSet) {
+        if (!isZoom) {
+            triggerEvent.call(this.player, this.target, this.active ? 'enterfullscreen' : 'exitfullscreen', true);
+        } else {
+            triggerEvent.call(this.player, this.target, this.zoomActive ? 'enterzoomfullscreen' : 'exitzoomfullscreen', true);
+        }
+    } else {
+        if (!isZoom) {
+            triggerEvent.call(
+                this.player,
+                this.player.elements.container,
+                this.active ? 'enterfullscreen' : 'exitfullscreen',
+                true,
+            );
+        } else {
+            triggerEvent.call(
+                this.player,
+                this.player.elements.container,
+                this.zoomActive ? 'enterzoomfullscreen' : 'exitzoomfullscreen',
+                true,
+            );
+        }
+    }
 
     // Trap focus in container
     if (!browser.isIos) {
@@ -45,7 +74,13 @@ function toggleFallback(toggle = false) {
     document.body.style.overflow = toggle ? 'hidden' : '';
 
     // Toggle class hook
-    toggleClass(this.target, this.player.config.classNames.fullscreen.fallback, toggle);
+    if (this.target === this.player.elements.container) {
+        toggleClass(this.target, this.player.config.classNames.fullscreen.fallback, toggle);
+    } else {
+        toggleClass(this.target, this.player.config.classNames.fullscreen.fallback, toggle);
+        toggleClass(this.player.elements.container, this.player.config.classNames.fullscreen.fallback, toggle);
+    }
+
 
     // Force full viewport on iPhone X+
     if (browser.isIos) {
@@ -79,7 +114,7 @@ function toggleFallback(toggle = false) {
     }
 
     // Toggle button and fire events
-    onChange.call(this);
+    onChange.call(this, true);
 }
 
 class Fullscreen {
@@ -183,11 +218,26 @@ class Fullscreen {
         return element === this.target;
     }
 
+    get zoomActive() {
+        return hasClass(this.target, this.player.config.classNames.fullscreen.fallback);
+    }
+
+    get isIosNative() {
+        return browser.isIos && this.player.config.fullscreen.iosNative;
+    }
+
+    get isOutterContainerSet() {
+        return !!this.player.config.fullscreenContainer;
+    }
+
     // Get target element
     get target() {
-        return browser.isIos && this.player.config.fullscreen.iosNative
-            ? this.player.media
-            : this.player.elements.container;
+        if (this.isIosNative) {
+            return this.player.media;
+        } else if (this.isOutterContainerSet) {
+            return this.player.config.fullscreenContainer;
+        }
+        return this.player.elements.container;
     }
 
     // Update UI
@@ -206,6 +256,10 @@ class Fullscreen {
     enter() {
         if (!this.enabled) {
             return;
+        }
+
+        if (this.zoomActive) {
+            this.toggleZoom();
         }
 
         // iOS native fullscreen doesn't need the request step
@@ -237,6 +291,14 @@ class Fullscreen {
         } else if (!is.empty(this.prefix)) {
             const action = this.prefix === 'moz' ? 'Cancel' : 'Exit';
             document[`${this.prefix}${action}${this.property}`]();
+        }
+    }
+
+    toggleZoom() {
+        if (!this.zoomActive) {
+            toggleFallback.call(this, true);
+        } else {
+            toggleFallback.call(this, false);
         }
     }
 

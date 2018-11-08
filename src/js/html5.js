@@ -2,6 +2,8 @@
 // Plyr HTML5 helpers
 // ==========================================================================
 
+import controls from './controls';
+import is from './utils/is';
 import support from './support';
 import { removeElement } from './utils/elements';
 import { triggerEvent } from './utils/events';
@@ -36,6 +38,7 @@ const html5 = {
 
         // Quality
         Object.defineProperty(player.media, 'quality', {
+            configurable: true,
             get() {
                 // Get sources
                 const sources = html5.getSources.call(player);
@@ -59,29 +62,42 @@ const html5 = {
                 // Get current state
                 const { currentTime, paused, preload, readyState } = player.media;
 
-                // Set new source
-                player.media.src = source.getAttribute('src');
+                player.pause();
 
-                // Prevent loading if preload="none" and the current source isn't loaded (#1044)
-                if (preload !== 'none' || readyState) {
-                    // Restore time
-                    player.once('loadedmetadata', () => {
-                        player.currentTime = currentTime;
+                setTimeout(() => {
+                    // Set new source
+                    player.media.src = source.getAttribute('src');
 
-                        // Resume playing
-                        if (!paused) {
-                            player.play();
-                        }
+                    // Prevent loading if preload="none" and the current source isn't loaded (#1044)
+                    if (preload !== 'none' || readyState) {
+                        // Restore time
+                        player.once('loadedmetadata', () => {
+                            if (player.currentTime === 0) {
+                                player.currentTime = currentTime;
+                            }
+
+                            // Resume playing
+                            if (!paused) {
+                                player.play();
+                            }
+                        });
+
+                        // Load new source
+                        player.media.load();
+                    }
+
+                    // restore speed
+                    const speed = player.storage.get('speed');
+                    if (is.number(speed)) {
+                        player.speed = speed;
+                        controls.updateSetting.call(player, 'speed', speed);
+                    }
+
+                    // Trigger change event
+                    triggerEvent.call(player, player.media, 'qualitychange', false, {
+                        quality: input,
                     });
-
-                    // Load new source
-                    player.media.load();
-                }
-
-                // Trigger change event
-                triggerEvent.call(player, player.media, 'qualitychange', false, {
-                    quality: input,
-                });
+                }, 0);
             },
         });
     },
@@ -93,8 +109,16 @@ const html5 = {
             return;
         }
 
+        const sources = html5.getSources.call(this);
+        if (sources && sources.length > 0) {
+            // set source to blank string to avoid memory leak
+            sources.forEach((source) => {
+                source.setAttribute('src', '');
+            });
+            this.media.load();
+        }
         // Remove child sources
-        removeElement(html5.getSources.call(this));
+        removeElement(sources);
 
         // Set blank video src attribute
         // This is to prevent a MEDIA_ERR_SRC_NOT_SUPPORTED error

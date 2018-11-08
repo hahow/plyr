@@ -1480,7 +1480,7 @@ typeof navigator === "object" && (function (global, factory) {
         // Set @@toStringTag to native iterators
         _setToStringTag(IteratorPrototype, TAG, true);
         // fix for some old engines
-        if (typeof IteratorPrototype[ITERATOR$3] != 'function') _hide(IteratorPrototype, ITERATOR$3, returnThis);
+        if (!_library && typeof IteratorPrototype[ITERATOR$3] != 'function') _hide(IteratorPrototype, ITERATOR$3, returnThis);
       }
     }
     // fix Array#{values, @@iterator}.name in V8 / FF
@@ -1489,7 +1489,7 @@ typeof navigator === "object" && (function (global, factory) {
       $default = function values() { return $native.call(this); };
     }
     // Define iterator
-    if (BUGGY || VALUES_BUG || !proto[ITERATOR$3]) {
+    if ((!_library || FORCED) && (BUGGY || VALUES_BUG || !proto[ITERATOR$3])) {
       _hide(proto, ITERATOR$3, $default);
     }
     // Plug for library
@@ -2073,6 +2073,18 @@ typeof navigator === "object" && (function (global, factory) {
     throw new TypeError("Invalid attempt to destructure non-iterable instance");
   }
 
+  // @@replace logic
+  _fixReWks('replace', 2, function (defined, REPLACE, $replace) {
+    // 21.1.3.14 String.prototype.replace(searchValue, replaceValue)
+    return [function replace(searchValue, replaceValue) {
+      var O = defined(this);
+      var fn = searchValue == undefined ? undefined : searchValue[REPLACE];
+      return fn !== undefined
+        ? fn.call(searchValue, O, replaceValue)
+        : $replace.call(String(O), searchValue, replaceValue);
+    }, $replace];
+  });
+
   // 19.1.3.1 Object.assign(target, source)
 
 
@@ -2184,17 +2196,149 @@ typeof navigator === "object" && (function (global, factory) {
     }
   });
 
-  // @@replace logic
-  _fixReWks('replace', 2, function (defined, REPLACE, $replace) {
-    // 21.1.3.14 String.prototype.replace(searchValue, replaceValue)
-    return [function replace(searchValue, replaceValue) {
-      var O = defined(this);
-      var fn = searchValue == undefined ? undefined : searchValue[REPLACE];
-      return fn !== undefined
-        ? fn.call(searchValue, O, replaceValue)
-        : $replace.call(String(O), searchValue, replaceValue);
-    }, $replace];
+  var STARTS_WITH = 'startsWith';
+  var $startsWith = ''[STARTS_WITH];
+
+  _export(_export.P + _export.F * _failsIsRegexp(STARTS_WITH), 'String', {
+    startsWith: function startsWith(searchString /* , position = 0 */) {
+      var that = _stringContext(this, searchString, STARTS_WITH);
+      var index = _toLength(Math.min(arguments.length > 1 ? arguments[1] : undefined, that.length));
+      var search = String(searchString);
+      return $startsWith
+        ? $startsWith.call(that, search, index)
+        : that.slice(index, index + search.length) === search;
+    }
   });
+
+  // 20.1.2.4 Number.isNaN(number)
+
+
+  _export(_export.S, 'Number', {
+    isNaN: function isNaN(number) {
+      // eslint-disable-next-line no-self-compare
+      return number != number;
+    }
+  });
+
+  // ==========================================================================
+  // Type checking utils
+  // ==========================================================================
+  var getConstructor = function getConstructor(input) {
+    return input !== null && typeof input !== 'undefined' ? input.constructor : null;
+  };
+
+  var instanceOf = function instanceOf(input, constructor) {
+    return Boolean(input && constructor && input instanceof constructor);
+  };
+
+  var isNullOrUndefined = function isNullOrUndefined(input) {
+    return input === null || typeof input === 'undefined';
+  };
+
+  var isObject = function isObject(input) {
+    return getConstructor(input) === Object;
+  };
+
+  var isNumber = function isNumber(input) {
+    return getConstructor(input) === Number && !Number.isNaN(input);
+  };
+
+  var isString = function isString(input) {
+    return getConstructor(input) === String;
+  };
+
+  var isBoolean = function isBoolean(input) {
+    return getConstructor(input) === Boolean;
+  };
+
+  var isFunction = function isFunction(input) {
+    return getConstructor(input) === Function;
+  };
+
+  var isArray = function isArray(input) {
+    return Array.isArray(input);
+  };
+
+  var isWeakMap = function isWeakMap(input) {
+    return instanceOf(input, WeakMap);
+  };
+
+  var isNodeList = function isNodeList(input) {
+    return instanceOf(input, NodeList);
+  };
+
+  var isElement = function isElement(input) {
+    return instanceOf(input, Element);
+  };
+
+  var isTextNode = function isTextNode(input) {
+    return getConstructor(input) === Text;
+  };
+
+  var isEvent = function isEvent(input) {
+    return instanceOf(input, Event);
+  };
+
+  var isKeyboardEvent = function isKeyboardEvent(input) {
+    return instanceOf(input, KeyboardEvent);
+  };
+
+  var isCue = function isCue(input) {
+    return instanceOf(input, window.TextTrackCue) || instanceOf(input, window.VTTCue);
+  };
+
+  var isTrack = function isTrack(input) {
+    return instanceOf(input, TextTrack) || !isNullOrUndefined(input) && isString(input.kind);
+  };
+
+  var isEmpty = function isEmpty(input) {
+    return isNullOrUndefined(input) || (isString(input) || isArray(input) || isNodeList(input)) && !input.length || isObject(input) && !Object.keys(input).length;
+  };
+
+  var isUrl = function isUrl(input) {
+    // Accept a URL object
+    if (instanceOf(input, window.URL)) {
+      return true;
+    } // Must be string from here
+
+
+    if (!isString(input)) {
+      return false;
+    } // Add the protocol if required
+
+
+    var string = input;
+
+    if (!input.startsWith('http://') || !input.startsWith('https://')) {
+      string = "http://".concat(input);
+    }
+
+    try {
+      return !isEmpty(new URL(string).hostname);
+    } catch (e) {
+      return false;
+    }
+  };
+
+  var is$1 = {
+    nullOrUndefined: isNullOrUndefined,
+    object: isObject,
+    number: isNumber,
+    string: isString,
+    boolean: isBoolean,
+    function: isFunction,
+    array: isArray,
+    weakMap: isWeakMap,
+    nodeList: isNodeList,
+    element: isElement,
+    textNode: isTextNode,
+    event: isEvent,
+    keyboardEvent: isKeyboardEvent,
+    cue: isCue,
+    track: isTrack,
+    url: isUrl,
+    empty: isEmpty
+  };
 
   // 7.3.20 SpeciesConstructor(O, defaultConstructor)
 
@@ -2650,7 +2794,7 @@ typeof navigator === "object" && (function (global, factory) {
       return capability.promise;
     }
   });
-  _export(_export.S + _export.F * (!USE_NATIVE), PROMISE, {
+  _export(_export.S + _export.F * (_library || !USE_NATIVE), PROMISE, {
     // 25.4.4.6 Promise.resolve(x)
     resolve: function resolve(x) {
       return _promiseResolve(_library && this === Wrapper ? $Promise : this, x);
@@ -2700,150 +2844,6 @@ typeof navigator === "object" && (function (global, factory) {
       return capability.promise;
     }
   });
-
-  var STARTS_WITH = 'startsWith';
-  var $startsWith = ''[STARTS_WITH];
-
-  _export(_export.P + _export.F * _failsIsRegexp(STARTS_WITH), 'String', {
-    startsWith: function startsWith(searchString /* , position = 0 */) {
-      var that = _stringContext(this, searchString, STARTS_WITH);
-      var index = _toLength(Math.min(arguments.length > 1 ? arguments[1] : undefined, that.length));
-      var search = String(searchString);
-      return $startsWith
-        ? $startsWith.call(that, search, index)
-        : that.slice(index, index + search.length) === search;
-    }
-  });
-
-  // 20.1.2.4 Number.isNaN(number)
-
-
-  _export(_export.S, 'Number', {
-    isNaN: function isNaN(number) {
-      // eslint-disable-next-line no-self-compare
-      return number != number;
-    }
-  });
-
-  // ==========================================================================
-  // Type checking utils
-  // ==========================================================================
-  var getConstructor = function getConstructor(input) {
-    return input !== null && typeof input !== 'undefined' ? input.constructor : null;
-  };
-
-  var instanceOf = function instanceOf(input, constructor) {
-    return Boolean(input && constructor && input instanceof constructor);
-  };
-
-  var isNullOrUndefined = function isNullOrUndefined(input) {
-    return input === null || typeof input === 'undefined';
-  };
-
-  var isObject = function isObject(input) {
-    return getConstructor(input) === Object;
-  };
-
-  var isNumber = function isNumber(input) {
-    return getConstructor(input) === Number && !Number.isNaN(input);
-  };
-
-  var isString = function isString(input) {
-    return getConstructor(input) === String;
-  };
-
-  var isBoolean = function isBoolean(input) {
-    return getConstructor(input) === Boolean;
-  };
-
-  var isFunction = function isFunction(input) {
-    return getConstructor(input) === Function;
-  };
-
-  var isArray = function isArray(input) {
-    return Array.isArray(input);
-  };
-
-  var isWeakMap = function isWeakMap(input) {
-    return instanceOf(input, WeakMap);
-  };
-
-  var isNodeList = function isNodeList(input) {
-    return instanceOf(input, NodeList);
-  };
-
-  var isElement = function isElement(input) {
-    return instanceOf(input, Element);
-  };
-
-  var isTextNode = function isTextNode(input) {
-    return getConstructor(input) === Text;
-  };
-
-  var isEvent = function isEvent(input) {
-    return instanceOf(input, Event);
-  };
-
-  var isKeyboardEvent = function isKeyboardEvent(input) {
-    return instanceOf(input, KeyboardEvent);
-  };
-
-  var isCue = function isCue(input) {
-    return instanceOf(input, window.TextTrackCue) || instanceOf(input, window.VTTCue);
-  };
-
-  var isTrack = function isTrack(input) {
-    return instanceOf(input, TextTrack) || !isNullOrUndefined(input) && isString(input.kind);
-  };
-
-  var isEmpty = function isEmpty(input) {
-    return isNullOrUndefined(input) || (isString(input) || isArray(input) || isNodeList(input)) && !input.length || isObject(input) && !Object.keys(input).length;
-  };
-
-  var isUrl = function isUrl(input) {
-    // Accept a URL object
-    if (instanceOf(input, window.URL)) {
-      return true;
-    } // Must be string from here
-
-
-    if (!isString(input)) {
-      return false;
-    } // Add the protocol if required
-
-
-    var string = input;
-
-    if (!input.startsWith('http://') || !input.startsWith('https://')) {
-      string = "http://".concat(input);
-    }
-
-    try {
-      return !isEmpty(new URL(string).hostname);
-    } catch (e) {
-      return false;
-    }
-  };
-
-  var is$1 = {
-    nullOrUndefined: isNullOrUndefined,
-    object: isObject,
-    number: isNumber,
-    string: isString,
-    boolean: isBoolean,
-    function: isFunction,
-    array: isArray,
-    weakMap: isWeakMap,
-    nodeList: isNodeList,
-    element: isElement,
-    textNode: isTextNode,
-    event: isEvent,
-    keyboardEvent: isKeyboardEvent,
-    cue: isCue,
-    track: isTrack,
-    url: isUrl,
-    empty: isEmpty
-  };
 
   // https://github.com/WICG/EventListenerOptions/blob/gh-pages/explainer.md
   // https://www.youtube.com/watch?v=NPM6172J22g
@@ -2964,7 +2964,11 @@ typeof navigator === "object" && (function (global, factory) {
       })
     }); // Dispatch the event
 
-    element.dispatchEvent(event);
+    try {
+      element.dispatchEvent(event);
+    } catch (err) {
+      throw new Error("CustomEvent ".concat(event.type, ": ").concat(JSON.stringify(event.detail)));
+    }
   } // Unbind all cached event listeners
 
   function unbindListeners() {
@@ -3195,15 +3199,12 @@ typeof navigator === "object" && (function (global, factory) {
   } // Element matches selector
 
   function matches(element, selector) {
-    var prototype = {
-      Element: Element
-    };
 
     function match() {
       return Array.from(document.querySelectorAll(selector)).includes(this);
     }
 
-    var matches = prototype.matches || prototype.webkitMatchesSelector || prototype.mozMatchesSelector || prototype.msMatchesSelector || match;
+    var matches = match;
     return matches.call(element, selector);
   } // Find all elements
 
@@ -3433,6 +3434,7 @@ typeof navigator === "object" && (function (global, factory) {
       var player = this; // Quality
 
       Object.defineProperty(player.media, 'quality', {
+        configurable: true,
         get: function get() {
           // Get sources
           var sources = html5.getSources.call(player);
@@ -3459,27 +3461,41 @@ typeof navigator === "object" && (function (global, factory) {
               currentTime = _player$media.currentTime,
               paused = _player$media.paused,
               preload = _player$media.preload,
-              readyState = _player$media.readyState; // Set new source
+              readyState = _player$media.readyState;
+          player.pause();
+          setTimeout(function () {
+            // Set new source
+            player.media.src = source.getAttribute('src'); // Prevent loading if preload="none" and the current source isn't loaded (#1044)
 
-          player.media.src = source.getAttribute('src'); // Prevent loading if preload="none" and the current source isn't loaded (#1044)
-
-          if (preload !== 'none' || readyState) {
-            // Restore time
-            player.once('loadedmetadata', function () {
-              player.currentTime = currentTime; // Resume playing
-
-              if (!paused) {
-                player.play();
-              }
-            }); // Load new source
-
-            player.media.load();
-          } // Trigger change event
+            if (preload !== 'none' || readyState) {
+              // Restore time
+              player.once('loadedmetadata', function () {
+                if (player.currentTime === 0) {
+                  player.currentTime = currentTime;
+                } // Resume playing
 
 
-          triggerEvent.call(player, player.media, 'qualitychange', false, {
-            quality: input
-          });
+                if (!paused) {
+                  player.play();
+                }
+              }); // Load new source
+
+              player.media.load();
+            } // restore speed
+
+
+            var speed = player.storage.get('speed');
+
+            if (is$1.number(speed)) {
+              player.speed = speed;
+              controls.updateSetting.call(player, 'speed', speed);
+            } // Trigger change event
+
+
+            triggerEvent.call(player, player.media, 'qualitychange', false, {
+              quality: input
+            });
+          }, 0);
         }
       });
     },
@@ -3488,10 +3504,20 @@ typeof navigator === "object" && (function (global, factory) {
     cancelRequests: function cancelRequests() {
       if (!this.isHTML5) {
         return;
+      }
+
+      var sources = html5.getSources.call(this);
+
+      if (sources && sources.length > 0) {
+        // set source to blank string to avoid memory leak
+        sources.forEach(function (source) {
+          source.setAttribute('src', '');
+        });
+        this.media.load();
       } // Remove child sources
 
 
-      removeElement(html5.getSources.call(this)); // Set blank video src attribute
+      removeElement(sources); // Set blank video src attribute
       // This is to prevent a MEDIA_ERR_SRC_NOT_SUPPORTED error
       // Info: http://stackoverflow.com/questions/32231579/how-to-properly-dispose-of-an-html5-video-and-close-socket-or-connection
 
@@ -4110,6 +4136,14 @@ typeof navigator === "object" && (function (global, factory) {
           props.iconPressed = 'captions-on';
           break;
 
+        case 'zoom':
+          props.toggle = true;
+          props.label = 'enterZoom';
+          props.labelPressed = 'exitZoom';
+          props.icon = 'enter-zoom';
+          props.iconPressed = 'exit-zoom';
+          break;
+
         case 'fullscreen':
           props.toggle = true;
           props.label = 'enterFullscreen';
@@ -4124,6 +4158,11 @@ typeof navigator === "object" && (function (global, factory) {
           props.label = 'play';
           props.icon = 'play';
           break;
+
+        case 'add-lecture-note':
+          type = 'add-lecture-note';
+          props.label = '筆記標註';
+          props.icon = 'add-lecture-note';
 
         default:
           if (is$1.empty(props.label)) {
@@ -4618,6 +4657,8 @@ typeof navigator === "object" && (function (global, factory) {
 
       if (setting === 'captions') {
         value = this.currentTrack;
+      } else if (setting === 'caption-position') {
+        value = this.setCaptionsPositionMenu;
       } else {
         value = !is$1.empty(input) ? input : this[setting]; // Get default
 
@@ -4630,9 +4671,11 @@ typeof navigator === "object" && (function (global, factory) {
           this.debug.warn("Unsupported value of '".concat(value, "' for ").concat(setting));
           return;
         } // Disabled value
+        // We generate resolution option from real contents.
+        // Therefore, bypasss checking on ‘quality’ config.
 
 
-        if (!this.config[setting].options.includes(value)) {
+        if (setting !== 'quality' && !this.config[setting].options.includes(value)) {
           this.debug.warn("Disabled value of '".concat(value, "' for ").concat(setting));
           return;
         }
@@ -4679,6 +4722,9 @@ typeof navigator === "object" && (function (global, factory) {
 
         case 'captions':
           return captions.getLabel.call(this);
+
+        case 'caption-position':
+          return i18n.get("captionPositionLabel.".concat(value), this.config);
 
         default:
           return null;
@@ -4826,9 +4872,37 @@ typeof navigator === "object" && (function (global, factory) {
       options.forEach(controls.createMenuItem.bind(this));
       controls.updateSetting.call(this, type, list);
     },
-    // Set a list of available captions languages
-    setSpeedMenu: function setSpeedMenu(options) {
+    setCaptionsPositionMenu: function setCaptionsPositionMenu() {
       var _this7 = this;
+
+      if (!this.config.controls.includes('caption-position')) {
+        return;
+      }
+
+      if (!is$1.element(this.elements.settings.panes['caption-position'])) {
+        return;
+      }
+
+      var type = 'caption-position';
+      controls.toggleTab.call(this, type, true); // Get the list to populate
+
+      var list = this.elements.settings.panes['caption-position'].querySelector('ul'); // Empty the menu
+
+      emptyElement(list);
+      var positions = ['top', 'bottom']; // Create items
+
+      positions.forEach(function (position) {
+        controls.createMenuItem.call(_this7, {
+          value: position,
+          list: list,
+          type: type,
+          title: controls.getLabel.call(_this7, 'caption-position', position)
+        });
+      });
+      controls.updateSetting.call(this, type, list);
+    },
+    setSpeedMenu: function setSpeedMenu(options) {
+      var _this8 = this;
 
       // Menu required
       if (!is$1.element(this.elements.settings.panels.speed)) {
@@ -4846,7 +4920,7 @@ typeof navigator === "object" && (function (global, factory) {
 
 
       this.options.speed = this.options.speed.filter(function (speed) {
-        return _this7.config.speed.options.includes(speed);
+        return _this8.config.speed.options.includes(speed);
       }); // Toggle the pane and tab
 
       var toggle = !is$1.empty(this.options.speed) && this.options.speed.length > 1;
@@ -4862,11 +4936,11 @@ typeof navigator === "object" && (function (global, factory) {
 
 
       this.options.speed.forEach(function (speed) {
-        controls.createMenuItem.call(_this7, {
+        controls.createMenuItem.call(_this8, {
           value: speed,
           list: list,
           type: type,
-          title: controls.getLabel.call(_this7, 'speed', speed)
+          title: controls.getLabel.call(_this8, 'speed', speed)
         });
       });
       controls.updateSetting.call(this, type, list);
@@ -4959,7 +5033,7 @@ typeof navigator === "object" && (function (global, factory) {
     },
     // Show a panel in the menu
     showMenuPanel: function showMenuPanel() {
-      var _this8 = this;
+      var _this9 = this;
 
       var type = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
       var tabFocus = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
@@ -4992,7 +5066,7 @@ typeof navigator === "object" && (function (global, factory) {
           container.style.width = '';
           container.style.height = ''; // Only listen once
 
-          off.call(_this8, container, transitionEndEvent, restore);
+          off.call(_this9, container, transitionEndEvent, restore);
         }; // Listen for the transition finishing and restore auto height/width
 
 
@@ -5023,7 +5097,7 @@ typeof navigator === "object" && (function (global, factory) {
     // Build the default HTML
     // TODO: Set order based on order in the config.controls array?
     create: function create(data) {
-      var _this9 = this;
+      var _this10 = this;
 
       // Create the container
       var container = createElement('div', getAttributesFromSelector(this.config.selectors.controls.wrapper)); // Restart button
@@ -5143,22 +5217,22 @@ typeof navigator === "object" && (function (global, factory) {
 
         this.config.settings.forEach(function (type) {
           // TODO: bundle this with the createMenuItem helper and bindings
-          var menuItem = createElement('button', extend(getAttributesFromSelector(_this9.config.selectors.buttons.settings), {
+          var menuItem = createElement('button', extend(getAttributesFromSelector(_this10.config.selectors.buttons.settings), {
             type: 'button',
-            class: "".concat(_this9.config.classNames.control, " ").concat(_this9.config.classNames.control, "--forward"),
+            class: "".concat(_this10.config.classNames.control, " ").concat(_this10.config.classNames.control, "--forward"),
             role: 'menuitem',
             'aria-haspopup': true,
             hidden: ''
           })); // Bind menu shortcuts for keyboard users
 
-          controls.bindMenuItemShortcuts.call(_this9, menuItem, type); // Show menu on click
+          controls.bindMenuItemShortcuts.call(_this10, menuItem, type); // Show menu on click
 
           on(menuItem, 'click', function () {
-            controls.showMenuPanel.call(_this9, type, false);
+            controls.showMenuPanel.call(_this10, type, false);
           });
-          var flex = createElement('span', null, i18n.get(type, _this9.config));
+          var flex = createElement('span', null, i18n.get(type, _this10.config));
           var value = createElement('span', {
-            class: _this9.config.classNames.menu.value
+            class: _this10.config.classNames.menu.value
           }); // Speed contains HTML entities
 
           value.innerHTML = data[type];
@@ -5173,16 +5247,16 @@ typeof navigator === "object" && (function (global, factory) {
 
           var backButton = createElement('button', {
             type: 'button',
-            class: "".concat(_this9.config.classNames.control, " ").concat(_this9.config.classNames.control, "--back")
+            class: "".concat(_this10.config.classNames.control, " ").concat(_this10.config.classNames.control, "--back")
           }); // Visible label
 
           backButton.appendChild(createElement('span', {
             'aria-hidden': true
-          }, i18n.get(type, _this9.config))); // Screen reader label
+          }, i18n.get(type, _this10.config))); // Screen reader label
 
           backButton.appendChild(createElement('span', {
-            class: _this9.config.classNames.hidden
-          }, i18n.get('menuBack', _this9.config))); // Go back via keyboard
+            class: _this10.config.classNames.hidden
+          }, i18n.get('menuBack', _this10.config))); // Go back via keyboard
 
           on(pane, 'keydown', function (event) {
             // We only care about <-
@@ -5194,11 +5268,11 @@ typeof navigator === "object" && (function (global, factory) {
             event.preventDefault();
             event.stopPropagation(); // Show the respective menu
 
-            controls.showMenuPanel.call(_this9, 'home', true);
+            controls.showMenuPanel.call(_this10, 'home', true);
           }, false); // Go back via button click
 
           on(backButton, 'click', function () {
-            controls.showMenuPanel.call(_this9, 'home', false);
+            controls.showMenuPanel.call(_this10, 'home', false);
           }); // Add to pane
 
           pane.appendChild(backButton); // Menu
@@ -5207,8 +5281,8 @@ typeof navigator === "object" && (function (global, factory) {
             role: 'menu'
           }));
           inner.appendChild(pane);
-          _this9.elements.settings.buttons[type] = menuItem;
-          _this9.elements.settings.panels[type] = pane;
+          _this10.elements.settings.buttons[type] = menuItem;
+          _this10.elements.settings.panels[type] = pane;
         });
         popup.appendChild(inner);
         control.appendChild(popup);
@@ -5244,6 +5318,11 @@ typeof navigator === "object" && (function (global, factory) {
         }
 
         container.appendChild(controls.createButton.call(this, 'download', _attributes));
+      } // Toggle zoom button
+
+
+      if (this.config.controls.includes('zoom')) {
+        container.appendChild(controls.createButton.call(this, 'zoom'));
       } // Toggle fullscreen button
 
 
@@ -5267,7 +5346,7 @@ typeof navigator === "object" && (function (global, factory) {
     },
     // Insert controls
     inject: function inject() {
-      var _this10 = this;
+      var _this11 = this;
 
       // Sprite
       if (this.config.loadSprite) {
@@ -5362,7 +5441,7 @@ typeof navigator === "object" && (function (global, factory) {
 
       if (!is$1.empty(this.elements.buttons)) {
         var addProperty = function addProperty(button) {
-          var className = _this10.config.classNames.controlPressed;
+          var className = _this11.config.classNames.controlPressed;
           Object.defineProperty(button, 'pressed', {
             enumerable: true,
             get: function get() {
@@ -5398,8 +5477,8 @@ typeof navigator === "object" && (function (global, factory) {
         var selector = "".concat(selectors.controls.wrapper, " ").concat(selectors.labels, " .").concat(classNames.hidden);
         var labels = getElements.call(this, selector);
         Array.from(labels).forEach(function (label) {
-          toggleClass(label, _this10.config.classNames.hidden, false);
-          toggleClass(label, _this10.config.classNames.tooltip, true);
+          toggleClass(label, _this11.config.classNames.hidden, false);
+          toggleClass(label, _this11.config.classNames.tooltip, true);
         });
       }
     }
@@ -5457,6 +5536,7 @@ typeof navigator === "object" && (function (global, factory) {
         // Clear menu and hide
         if (is$1.array(this.config.controls) && this.config.controls.includes('settings') && this.config.settings.includes('captions')) {
           controls.setCaptionsMenu.call(this);
+          controls.setCaptionsPositionMenu.call(this);
         }
 
         return;
@@ -5515,7 +5595,8 @@ typeof navigator === "object" && (function (global, factory) {
         active: active,
         language: language,
         languages: languages
-      }); // Watch changes to textTracks and update captions menu
+      });
+      captions.setPosition.call(this, this.captionPosition); // Watch changes to textTracks and update captions menu
 
       if (this.isHTML5) {
         var trackEvents = this.config.captions.update ? 'addtrack removetrack' : 'removetrack';
@@ -5566,9 +5647,14 @@ typeof navigator === "object" && (function (global, factory) {
       } // Enable or disable captions based on track length
 
 
-      toggleClass(this.elements.container, this.config.classNames.captions.enabled, !is$1.empty(tracks)); // Update available languages in list
+      toggleClass(this.elements.container, this.config.classNames.captions.enabled, !is$1.empty(tracks)); // for custom control
 
-      if ((this.config.controls || []).includes('settings') && this.config.settings.includes('captions')) {
+      if (is$1.string(this.config.controls) || is$1.function(this.config.controls)) {
+        if (this.config.customMenu && is$1.function(this.config.customMenu.caption)) {
+          this.config.customMenu.caption.call(this);
+        }
+      } else if ((this.config.controls || []).includes('settings') && this.config.settings.includes('captions')) {
+        // Update available languages in list
         controls.setCaptionsMenu.call(this);
       }
     },
@@ -5647,6 +5733,7 @@ typeof navigator === "object" && (function (global, factory) {
       if (this.captions.currentTrack !== index) {
         this.captions.currentTrack = index;
         var track = tracks[index];
+        track.mode = 'showing';
 
         var _ref = track || {},
             language = _ref.language; // Store reference to node for invalidation on remove
@@ -5808,6 +5895,36 @@ typeof navigator === "object" && (function (global, factory) {
 
         triggerEvent.call(this, this.media, 'cuechange');
       }
+    },
+    setPosition: function setPosition(position) {
+      // if already setup correct class name, just ignore
+      if (hasClass(this.elements.captions, this.config.classNames.captionPosition.replace('{0}', 'top'))) {
+        if (position === 'top') return;
+      } else if (position === 'bottom') {
+        return;
+      }
+
+      toggleClass(this.elements.captions, this.config.classNames.captionPosition.replace('{0}', 'top')); // Update settings menu
+
+      controls.updateSetting.call(this, 'caption-position');
+    },
+    setDefault: function setDefault() {
+      var defaultLanguage = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
+      var captionsActive = this.storage.get('captions');
+      var captionsLanguage = this.storage.get('language') || defaultLanguage; // if storage has caption active and,
+
+      if (is$1.boolean(captionsActive) && captionsActive && is$1.string(captionsLanguage) || !is$1.boolean(captionsActive) && is$1.string(captionsLanguage)) {
+        var tracks = captions.getTracks.call(this, true);
+        var findLanguageList = [captionsLanguage];
+
+        if (defaultLanguage) {
+          findLanguageList.push(defaultLanguage);
+        }
+
+        Array.prototype.push.apply(findLanguageList, this.captions.languages);
+        var track = captions.findTrack.call(this, findLanguageList, true);
+        captions.set.call(this, tracks.indexOf(track));
+      }
     }
   };
 
@@ -5858,6 +5975,12 @@ typeof navigator === "object" && (function (global, factory) {
     iconUrl: 'https://cdn.plyr.io/3.4.6/plyr.svg',
     // Blank video (used to prevent errors on source change)
     blankVideo: 'https://cdn.plyr.io/static/blank.mp4',
+    logo: {
+      url: undefined,
+      link: undefined
+    },
+    // fullscreen container, default is plyr container
+    fullscreenContainer: undefined,
     // Quality default
     quality: {
       default: 576,
@@ -5888,6 +6011,7 @@ typeof navigator === "object" && (function (global, factory) {
     captions: {
       active: false,
       language: 'auto',
+      position: 'bottom',
       // Listen to new tracks added after Plyr is initialized.
       // This is needed for streaming captions, but may result in unselectable options
       update: false
@@ -5910,9 +6034,8 @@ typeof navigator === "object" && (function (global, factory) {
     controls: ['play-large', // 'restart',
     // 'rewind',
     'play', // 'fast-forward',
-    'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', // 'download',
-    'fullscreen'],
-    settings: ['captions', 'quality', 'speed'],
+    'progress', 'current-time', 'mute', 'volume', 'captions', 'caption-position', 'settings', 'pip', 'airplay', 'zoom', 'fullscreen'],
+    settings: ['captions', 'caption-position', 'quality', 'speed'],
     // Localisation
     i18n: {
       restart: 'Restart',
@@ -5934,8 +6057,16 @@ typeof navigator === "object" && (function (global, factory) {
       download: 'Download',
       enterFullscreen: 'Enter fullscreen',
       exitFullscreen: 'Exit fullscreen',
+      enterZoom: 'zoom',
+      exitZoom: 'reset screen size',
       frameTitle: 'Player for {title}',
       captions: 'Captions',
+      noCaptions: 'No captions',
+      'caption-position': 'Caption Position',
+      captionPositionLabel: {
+        top: 'Top',
+        bottom: 'Bottom'
+      },
       settings: 'Settings',
       menuBack: 'Go back to previous menu',
       speed: 'Speed',
@@ -5974,6 +6105,10 @@ typeof navigator === "object" && (function (global, factory) {
         sdk: 'https://imasdk.googleapis.com/js/sdkloader/ima3.js'
       }
     },
+    // custom control menu setup function
+    customMenu: {
+      caption: null
+    },
     // Custom control listeners
     listeners: {
       seek: null,
@@ -5998,7 +6133,7 @@ typeof navigator === "object" && (function (global, factory) {
     events: [// Events to watch on HTML5 media elements and bubble
     // https://developer.mozilla.org/en/docs/Web/Guide/Events/Media_events
     'ended', 'progress', 'stalled', 'playing', 'waiting', 'canplay', 'canplaythrough', 'loadstart', 'loadeddata', 'loadedmetadata', 'timeupdate', 'volumechange', 'play', 'pause', 'error', 'seeking', 'seeked', 'emptied', 'ratechange', 'cuechange', // Custom events
-    'download', 'enterfullscreen', 'exitfullscreen', 'captionsenabled', 'captionsdisabled', 'languagechange', 'controlshidden', 'controlsshown', 'ready', // YouTube
+    'download', 'enterfullscreen', 'exitfullscreen', 'enterzoomfullscreen', 'exitzoomfullscreen', 'captionsenabled', 'captionsdisabled', 'languagechange', 'controlshidden', 'controlsshown', 'ready', // YouTube
     'statechange', // Quality
     'qualitychange', // Ads
     'adsloaded', 'adscontentpause', 'adscontentresume', 'adstarted', 'adsmidpoint', 'adscomplete', 'adsallcomplete', 'adsimpression', 'adsclick'],
@@ -6009,7 +6144,15 @@ typeof navigator === "object" && (function (global, factory) {
       container: '.plyr',
       controls: {
         container: null,
-        wrapper: '.plyr__controls'
+        wrapper: '.plyr__controls',
+        layer: {
+          topLayer: '.plyr__controls-top',
+          bottomLayer: '.plyr__controls-bottom'
+        },
+        bottom: {
+          left: '.plyr__controls-bottom-left',
+          right: '.plyr__controls-bottom-right'
+        }
       },
       labels: '[data-plyr]',
       buttons: {
@@ -6021,6 +6164,7 @@ typeof navigator === "object" && (function (global, factory) {
         mute: '[data-plyr="mute"]',
         captions: '[data-plyr="captions"]',
         download: '[data-plyr="download"]',
+        zoom: '[data-plyr="zoom"]',
         fullscreen: '[data-plyr="fullscreen"]',
         pip: '[data-plyr="pip"]',
         airplay: '[data-plyr="airplay"]',
@@ -6032,6 +6176,7 @@ typeof navigator === "object" && (function (global, factory) {
         volume: '[data-plyr="volume"]',
         speed: '[data-plyr="speed"]',
         language: '[data-plyr="language"]',
+        'caption-position': '[data-plyr="caption-position"]',
         quality: '[data-plyr="quality"]'
       },
       display: {
@@ -6077,6 +6222,7 @@ typeof navigator === "object" && (function (global, factory) {
       display: {
         time: 'plyr__time'
       },
+      logo: 'plyr--logo',
       menu: {
         value: 'plyr__menu__value',
         badge: 'plyr__badge',
@@ -6086,6 +6232,7 @@ typeof navigator === "object" && (function (global, factory) {
         enabled: 'plyr--captions-enabled',
         active: 'plyr--captions-active'
       },
+      captionPosition: 'plyr__caption_position__{0}',
       fullscreen: {
         enabled: 'plyr--fullscreen-enabled',
         fallback: 'plyr--fullscreen-fallback'
@@ -6098,7 +6245,8 @@ typeof navigator === "object" && (function (global, factory) {
         supported: 'plyr--airplay-supported',
         active: 'plyr--airplay-active'
       },
-      tabFocus: 'plyr__tab-focus'
+      tabFocus: 'plyr__tab-focus',
+      outerContainer: 'plyr__outer-container'
     },
     // Embed attributes
     attributes: {
@@ -6202,19 +6350,42 @@ typeof navigator === "object" && (function (global, factory) {
   }();
 
   function onChange() {
+    var isZoom = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
+
     if (!this.enabled) {
       return;
-    } // Update toggle button
+    }
 
+    if (!isZoom) {
+      // Update toggle button
+      var button = this.player.elements.buttons.fullscreen;
 
-    var button = this.player.elements.buttons.fullscreen;
+      if (is$1.element(button)) {
+        button.pressed = this.active;
+      }
+    } else {
+      var _button = this.player.elements.buttons.zoom;
 
-    if (is$1.element(button)) {
-      button.pressed = this.active;
+      if (is$1.element(_button)) {
+        _button.pressed = this.zoomActive;
+      }
     } // Trigger an event
 
 
-    triggerEvent.call(this.player, this.target, this.active ? 'enterfullscreen' : 'exitfullscreen', true); // Trap focus in container
+    if (this.isIosNative || !this.isOutterContainerSet) {
+      if (!isZoom) {
+        triggerEvent.call(this.player, this.target, this.active ? 'enterfullscreen' : 'exitfullscreen', true);
+      } else {
+        triggerEvent.call(this.player, this.target, this.zoomActive ? 'enterzoomfullscreen' : 'exitzoomfullscreen', true);
+      }
+    } else {
+      if (!isZoom) {
+        triggerEvent.call(this.player, this.player.elements.container, this.active ? 'enterfullscreen' : 'exitfullscreen', true);
+      } else {
+        triggerEvent.call(this.player, this.player.elements.container, this.zoomActive ? 'enterzoomfullscreen' : 'exitzoomfullscreen', true);
+      }
+    } // Trap focus in container
+
 
     if (!browser.isIos) {
       trapFocus.call(this.player, this.target, this.active);
@@ -6239,7 +6410,13 @@ typeof navigator === "object" && (function (global, factory) {
 
     document.body.style.overflow = toggle ? 'hidden' : ''; // Toggle class hook
 
-    toggleClass(this.target, this.player.config.classNames.fullscreen.fallback, toggle); // Force full viewport on iPhone X+
+    if (this.target === this.player.elements.container) {
+      toggleClass(this.target, this.player.config.classNames.fullscreen.fallback, toggle);
+    } else {
+      toggleClass(this.target, this.player.config.classNames.fullscreen.fallback, toggle);
+      toggleClass(this.player.elements.container, this.player.config.classNames.fullscreen.fallback, toggle);
+    } // Force full viewport on iPhone X+
+
 
     if (browser.isIos) {
       var viewport = document.head.querySelector('meta[name="viewport"]');
@@ -6272,7 +6449,7 @@ typeof navigator === "object" && (function (global, factory) {
     } // Toggle button and fire events
 
 
-    onChange.call(this);
+    onChange.call(this, true);
   }
 
   var Fullscreen =
@@ -6332,6 +6509,10 @@ typeof navigator === "object" && (function (global, factory) {
       value: function enter() {
         if (!this.enabled) {
           return;
+        }
+
+        if (this.zoomActive) {
+          this.toggleZoom();
         } // iOS native fullscreen doesn't need the request step
 
 
@@ -6365,6 +6546,15 @@ typeof navigator === "object" && (function (global, factory) {
           var action = this.prefix === 'moz' ? 'Cancel' : 'Exit';
           document["".concat(this.prefix).concat(action).concat(this.property)]();
         }
+      }
+    }, {
+      key: "toggleZoom",
+      value: function toggleZoom() {
+        if (!this.zoomActive) {
+          toggleFallback.call(this, true);
+        } else {
+          toggleFallback.call(this, false);
+        }
       } // Toggle state
 
     }, {
@@ -6397,12 +6587,33 @@ typeof navigator === "object" && (function (global, factory) {
 
         var element = !this.prefix ? document.fullscreenElement : document["".concat(this.prefix).concat(this.property, "Element")];
         return element === this.target;
+      }
+    }, {
+      key: "zoomActive",
+      get: function get() {
+        return hasClass(this.target, this.player.config.classNames.fullscreen.fallback);
+      }
+    }, {
+      key: "isIosNative",
+      get: function get() {
+        return browser.isIos && this.player.config.fullscreen.iosNative;
+      }
+    }, {
+      key: "isOutterContainerSet",
+      get: function get() {
+        return !!this.player.config.fullscreenContainer;
       } // Get target element
 
     }, {
       key: "target",
       get: function get() {
-        return browser.isIos && this.player.config.fullscreen.iosNative ? this.player.media : this.player.elements.container;
+        if (this.isIosNative) {
+          return this.player.media;
+        } else if (this.isOutterContainerSet) {
+          return this.player.config.fullscreenContainer;
+        }
+
+        return this.player.elements.container;
       }
     }], [{
       key: "native",
@@ -6440,6 +6651,340 @@ typeof navigator === "object" && (function (global, factory) {
 
     return Fullscreen;
   }();
+
+  var hahow = {
+    createControls: function createControls(data) {
+      var _this = this;
+
+      // Create the container
+      var container = createElement('div', getAttributesFromSelector(this.config.selectors.controls.wrapper));
+      var topLayer = createElement('div', getAttributesFromSelector(this.config.selectors.controls.layer.topLayer));
+      var bottomLayer = createElement('div', getAttributesFromSelector(this.config.selectors.controls.layer.bottomLayer));
+      var bottomLeft = createElement('div', getAttributesFromSelector(this.config.selectors.controls.bottom.left));
+      var bottomRight = createElement('div', getAttributesFromSelector(this.config.selectors.controls.bottom.right));
+      bottomLayer.appendChild(bottomLeft);
+      bottomLayer.appendChild(bottomRight);
+      container.appendChild(topLayer);
+      container.appendChild(bottomLayer); // Rewind button
+
+      bottomLeft.appendChild(controls.createButton.call(this, 'rewind')); // Play/Pause button
+
+      bottomLeft.appendChild(controls.createButton.call(this, 'play')); // Fast forward button
+
+      bottomLeft.appendChild(controls.createButton.call(this, 'fast-forward')); // Progress
+
+      var progress = createElement('div', getAttributesFromSelector(this.config.selectors.progress)); // Seek range slider
+
+      progress.appendChild(controls.createRange.call(this, 'seek', {
+        id: "plyr-seek-".concat(data.id)
+      })); // Buffer progress
+
+      progress.appendChild(controls.createProgress.call(this, 'buffer')); // TODO: Add loop display indicator
+      // Seek tooltip
+
+      if (this.config.tooltips.seek) {
+        var tooltip = createElement('span', {
+          class: this.config.classNames.tooltip
+        }, '00:00');
+        progress.appendChild(tooltip);
+        this.elements.display.seekTooltip = tooltip;
+      }
+
+      this.elements.progress = progress;
+      topLayer.appendChild(this.elements.progress); // Media current time display
+
+      bottomLeft.appendChild(controls.createTime.call(this, 'currentTime')); // Media duration display
+
+      bottomLeft.appendChild(controls.createTime.call(this, 'duration')); // Add lecture note button
+
+      var addLecturneNoteBtn = controls.createButton.call(this, 'add-lecture-note', {
+        class: 'plyr__add-lecture-note hidden'
+      });
+      addLecturneNoteBtn.appendChild(createElement('span', {}, '筆記標註'));
+      bottomRight.appendChild(addLecturneNoteBtn);
+      addLecturneNoteBtn.addEventListener('click', function (e) {
+        _this.lectureNote.addLectureNote();
+
+        e.stopPropagation();
+      }); // Toggle mute button
+
+      bottomRight.appendChild(controls.createButton.call(this, 'mute')); // Volume range control
+
+      var volume = createElement('div', {
+        class: 'plyr__volume'
+      }); // Set the attributes
+
+      var attributes = {
+        max: 1,
+        step: 0.05,
+        value: this.config.volume
+      }; // Create the volume range slider
+
+      volume.appendChild(controls.createRange.call(this, 'volume', extend(attributes, {
+        id: "plyr-volume-".concat(data.id)
+      })));
+      this.elements.volume = volume;
+      bottomRight.appendChild(volume); // Settings button / menu
+
+      var menu = createElement('div', {
+        class: 'plyr__menu',
+        hidden: ''
+      });
+      menu.appendChild(controls.createButton.call(this, 'settings', {
+        id: "plyr-settings-toggle-".concat(data.id),
+        'aria-haspopup': true,
+        'aria-controls': "plyr-settings-".concat(data.id),
+        'aria-expanded': false
+      }));
+      var form = createElement('form', {
+        class: 'plyr__menu__container',
+        id: "plyr-settings-".concat(data.id),
+        hidden: '',
+        'aria-labelled-by': "plyr-settings-toggle-".concat(data.id),
+        role: 'tablist',
+        tabindex: -1
+      });
+      var inner = createElement('div');
+      var home = createElement('div', {
+        id: "plyr-settings-".concat(data.id, "-home"),
+        'aria-labelled-by': "plyr-settings-toggle-".concat(data.id),
+        role: 'tabpanel'
+      }); // Create the tab list
+
+      var tabs = createElement('ul', {
+        role: 'tablist'
+      }); // Build the tabs
+
+      this.config.settings.forEach(function (type) {
+        var tab = createElement('li', {
+          role: 'tab',
+          hidden: ''
+        });
+        var button = createElement('button', extend(getAttributesFromSelector(_this.config.selectors.buttons.settings), {
+          type: 'button',
+          class: "".concat(_this.config.classNames.control, " ").concat(_this.config.classNames.control, "--forward"),
+          id: "plyr-settings-".concat(data.id, "-").concat(type, "-tab"),
+          'aria-haspopup': true,
+          'aria-controls': "plyr-settings-".concat(data.id, "-").concat(type),
+          'aria-expanded': false
+        }), i18n.get(type, _this.config));
+        var value = createElement('span', {
+          class: _this.config.classNames.menu.value
+        }); // Speed contains HTML entities
+
+        value.innerHTML = data[type];
+        button.appendChild(value);
+        tab.appendChild(button);
+        tabs.appendChild(tab);
+        _this.elements.settings.tabs[type] = tab;
+      });
+      home.appendChild(tabs);
+      inner.appendChild(home); // Build the panes
+
+      this.config.settings.forEach(function (type) {
+        var pane = createElement('div', {
+          id: "plyr-settings-".concat(data.id, "-").concat(type),
+          class: 'subpanel',
+          hidden: '',
+          'aria-labelled-by': "plyr-settings-".concat(data.id, "-").concat(type, "-tab"),
+          role: 'tabpanel',
+          tabindex: -1
+        });
+        var back = createElement('button', {
+          type: 'button',
+          class: "".concat(_this.config.classNames.control, " ").concat(_this.config.classNames.control, "--back"),
+          'aria-haspopup': true,
+          'aria-controls': "plyr-settings-".concat(data.id, "-home"),
+          'aria-expanded': false
+        }, i18n.get(type, _this.config));
+        pane.appendChild(back);
+        var options = createElement('ul');
+        pane.appendChild(options);
+        inner.appendChild(pane);
+        _this.elements.settings.panes[type] = pane;
+      });
+      form.appendChild(inner);
+      menu.appendChild(form);
+      bottomRight.appendChild(menu);
+      this.elements.settings.form = form;
+      this.elements.settings.menu = menu;
+      bottomRight.appendChild(controls.createButton.call(this, 'zoom')); // Toggle fullscreen button
+
+      bottomRight.appendChild(controls.createButton.call(this, 'fullscreen'));
+      this.elements.controls = container;
+
+      if (this.isHTML5) {
+        hahow.setQualityMenu.call(this, html5.getQualityOptions.call(this));
+      }
+
+      hahow.setSpeedMenu.call(this);
+      hahow.setCaptionsMenu.call(this);
+      hahow.setCaptionsPositionMenu.call(this);
+      return container;
+    },
+    // Set the quality menu
+    setQualityMenu: function setQualityMenu(options) {
+      var _this2 = this;
+
+      var type = 'quality';
+      var list = this.elements.settings.panes.quality.querySelector('ul'); // Set options if passed and filter based on uniqueness and config
+
+      if (is$1.array(options)) {
+        this.options.quality = dedupe(options);
+      } // Toggle the pane and tab
+
+
+      var toggle = !is$1.empty(this.options.quality) && this.options.quality.length > 1;
+      controls.toggleTab.call(this, type, toggle); // Check if we need to toggle the parent
+
+      controls.checkMenu.call(this); // If we're hiding, nothing more to do
+
+      if (!toggle) {
+        return;
+      } // Empty the menu
+
+
+      emptyElement(list); // Sort options by the config and then render options
+
+      this.options.quality.sort(function (a, b) {
+        return a - b;
+      }).forEach(function (quality) {
+        controls.createMenuItem.call(_this2, {
+          value: quality,
+          list: list,
+          type: type,
+          title: controls.getLabel.call(_this2, 'quality', quality)
+        });
+      });
+      controls.updateSetting.call(this, type, list);
+    },
+    // Set a list of available captions languages
+    setCaptionsMenu: function setCaptionsMenu() {
+      var _this3 = this;
+
+      // Menu required
+      if (!is$1.element(this.elements.settings.panes.captions)) {
+        return;
+      } // TODO: Captions or language? Currently it's mixed
+
+
+      var type = 'captions';
+      var list = this.elements.settings.panes.captions.querySelector('ul');
+      var tracks = captions.getTracks.call(this); // Toggle the pane and tab
+
+      controls.toggleTab.call(this, type, true); // Empty the menu
+
+      emptyElement(list); // Check if we need to toggle the parent
+
+      controls.checkMenu.call(this); // If there's no captions, bail
+
+      if (!tracks.length) {
+        controls.createMenuItem.bind(this)({
+          value: -1,
+          checked: !this.captions.toggled,
+          title: i18n.get('noCaptions', this.config),
+          list: list,
+          type: 'language'
+        });
+        controls.updateSetting.call(this, type, list);
+        return;
+      } // Generate options data
+
+
+      var options = tracks.map(function (track, value) {
+        return {
+          value: value,
+          checked: _this3.captions.toggled && _this3.currentTrack === value,
+          title: captions.getLabel.call(_this3, track),
+          badge: track.language && controls.createBadge.call(_this3, track.language.toUpperCase()),
+          list: list,
+          type: 'language'
+        };
+      }); // Add the "Disabled" option to turn off captions
+
+      options.unshift({
+        value: -1,
+        checked: !this.captions.toggled,
+        title: i18n.get('disabled', this.config),
+        list: list,
+        type: 'language'
+      }); // Generate options
+
+      options.forEach(controls.createMenuItem.bind(this));
+      controls.updateSetting.call(this, type, list);
+    },
+    setCaptionsPositionMenu: function setCaptionsPositionMenu() {
+      var _this4 = this;
+
+      if (!is$1.element(this.elements.settings.panes['caption-position'])) {
+        return;
+      }
+
+      var type = 'caption-position';
+      controls.toggleTab.call(this, type, true); // Get the list to populate
+
+      var list = this.elements.settings.panes['caption-position'].querySelector('ul'); // Empty the menu
+
+      emptyElement(list);
+      var positions = ['top', 'bottom']; // Create items
+
+      positions.forEach(function (position) {
+        controls.createMenuItem.call(_this4, {
+          value: position,
+          list: list,
+          type: type,
+          title: controls.getLabel.call(_this4, 'caption-position', position)
+        });
+      });
+      controls.updateSetting.call(this, type, list);
+    },
+    // Set a list of available captions languages
+    setSpeedMenu: function setSpeedMenu(options) {
+      var _this5 = this;
+
+      // Menu required
+      if (!is$1.element(this.elements.settings.panes.speed)) {
+        return;
+      }
+
+      var type = 'speed'; // Set the speed options
+
+      if (is$1.array(options)) {
+        this.options.speed = options;
+      } else if (this.isHTML5 || this.isVimeo) {
+        this.options.speed = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+      } // Set options if passed and filter based on config
+
+
+      this.options.speed = this.options.speed.filter(function (speed) {
+        return _this5.config.speed.options.includes(speed);
+      }); // Toggle the pane and tab
+
+      var toggle = !is$1.empty(this.options.speed) && this.options.speed.length > 1;
+      controls.toggleTab.call(this, type, toggle); // Check if we need to toggle the parent
+
+      controls.checkMenu.call(this); // If we're hiding, nothing more to do
+
+      if (!toggle) {
+        return;
+      } // Get the list to populate
+
+
+      var list = this.elements.settings.panes.speed.querySelector('ul'); // Empty the menu
+
+      emptyElement(list); // Create items
+
+      this.options.speed.forEach(function (speed) {
+        controls.createMenuItem.call(_this5, {
+          value: speed,
+          list: list,
+          type: type,
+          title: controls.getLabel.call(_this5, 'speed', speed)
+        });
+      });
+      controls.updateSetting.call(this, type, list);
+    }
+  };
 
   // 20.2.2.28 Math.sign(x)
   var _mathSign = Math.sign || function sign(x) {
@@ -6481,6 +7026,12 @@ typeof navigator === "object" && (function (global, factory) {
       toggleClass(this.elements.container, this.config.selectors.container.replace('.', ''), true);
       toggleClass(this.elements.container, this.config.classNames.uiSupported, this.supported.ui);
     },
+    addStylehookToFullscreenContainer: function addStylehookToFullscreenContainer() {
+      // append plyr__outer-container class name to outer container
+      if (this.config.fullscreenContainer) {
+        toggleClass(this.config.fullscreenContainer, this.config.classNames.outerContainer, true);
+      }
+    },
     // Toggle native HTML5 media controls
     toggleNativeControls: function toggleNativeControls() {
       var toggle = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
@@ -6502,7 +7053,8 @@ typeof navigator === "object" && (function (global, factory) {
       if (!this.supported.ui) {
         this.debug.warn("Basic support only for ".concat(this.provider, " ").concat(this.type)); // Restore native controls
 
-        ui.toggleNativeControls.call(this, true); // Bail
+        ui.toggleNativeControls.call(this, true);
+        this.ready = true; // Bail
 
         return;
       } // Inject custom controls if not present
@@ -6750,7 +7302,7 @@ typeof navigator === "object" && (function (global, factory) {
           } // Which keycodes should we prevent default
 
 
-          var preventDefault = [32, 37, 38, 39, 40, 48, 49, 50, 51, 52, 53, 54, 56, 57, 67, 70, 73, 75, 76, 77, 79]; // If the code is found prevent default (e.g. prevent scrolling for arrows)
+          var preventDefault = [27, 32, 37, 38, 39, 40, 48, 49, 50, 51, 52, 53, 54, 56, 57, 67, 70, 73, 75, 76, 77, 79]; // If the code is found prevent default (e.g. prevent scrolling for arrows)
 
           if (preventDefault.includes(code)) {
             event.preventDefault();
@@ -6758,6 +7310,14 @@ typeof navigator === "object" && (function (global, factory) {
           }
 
           switch (code) {
+            case 27:
+              // esc escape fullscreen mode
+              if (this.player.fullscreen.enabled) {
+                this.player.fullscreen.exit();
+              }
+
+              break;
+
             case 48:
             case 49:
             case 50:
@@ -6828,6 +7388,14 @@ typeof navigator === "object" && (function (global, factory) {
             case 76:
               // L key
               player.loop = !player.loop;
+              break;
+
+            case 78:
+              // N key
+              if (this.player.lectureNote && this.player.lectureNote.isLoadedLectureNote && this.player.lectureNote.addLectureNoteButtonStatus === 'enable') {
+                this.player.lectureNote.addLectureNote();
+              }
+
               break;
 
             /* case 73:
@@ -6976,6 +7544,8 @@ typeof navigator === "object" && (function (global, factory) {
     }, {
       key: "media",
       value: function media() {
+        var _this = this;
+
         var player = this.player;
         var elements = player.elements; // Time change on media
 
@@ -7036,12 +7606,11 @@ typeof navigator === "object" && (function (global, factory) {
 
         if (player.supported.ui && player.config.clickToPlay && !player.isAudio) {
           // Re-fetch the wrapper
-          var wrapper = getElement.call(player, ".".concat(player.config.classNames.video)); // Bail if there's no wrapper (this should never happen)
+          var wrapper = getElement.call(player, ".".concat(player.config.classNames.video)); // Loading state
 
-          if (!is$1.element(wrapper)) {
-            return;
-          } // On click play, pause or restart
-
+          on.call(this.player, this.player.media, 'waiting canplay seeked playing', function (event) {
+            return ui.checkLoading.call(_this.player, event);
+          }); // On click play, pause or restart
 
           on.call(player, elements.container, 'click', function (event) {
             var targets = [elements.container, wrapper]; // Ignore if click if not container or in video wrapper
@@ -7134,21 +7703,21 @@ typeof navigator === "object" && (function (global, factory) {
     }, {
       key: "bind",
       value: function bind(element, type, defaultHandler, customHandlerKey) {
-        var _this = this;
+        var _this2 = this;
 
         var passive = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : true;
         var player = this.player;
         var customHandler = player.config.listeners[customHandlerKey];
         var hasCustomHandler = is$1.function(customHandler);
         on.call(player, element, type, function (event) {
-          return _this.proxy(event, defaultHandler, customHandlerKey);
+          return _this2.proxy(event, defaultHandler, customHandlerKey);
         }, passive && !hasCustomHandler);
       } // Listen for control events
 
     }, {
       key: "controls",
       value: function controls$$1() {
-        var _this2 = this;
+        var _this3 = this;
 
         var player = this.player;
         var elements = player.elements; // IE doesn't support input event, so we fallback to change
@@ -7157,7 +7726,7 @@ typeof navigator === "object" && (function (global, factory) {
 
         if (elements.buttons.play) {
           Array.from(elements.buttons.play).forEach(function (button) {
-            _this2.bind(button, 'click', player.togglePlay, 'play');
+            _this3.bind(button, 'click', player.togglePlay, 'play');
           });
         } // Pause
 
@@ -7178,7 +7747,11 @@ typeof navigator === "object" && (function (global, factory) {
 
         this.bind(elements.buttons.download, 'click', function () {
           triggerEvent.call(player, player.media, 'download');
-        }, 'download'); // Fullscreen toggle
+        }, 'download'); // zoom toggle
+
+        this.bind(elements.buttons.zoom, 'click', function () {
+          player.fullscreen.toggleZoom();
+        }, 'zoom'); // Fullscreen toggle
 
         this.bind(elements.buttons.fullscreen, 'click', function () {
           player.fullscreen.toggle();
@@ -7264,7 +7837,7 @@ typeof navigator === "object" && (function (global, factory) {
         if (browser.isIos) {
           var inputs = getElements.call(player, 'input[type="range"]');
           Array.from(inputs).forEach(function (input) {
-            return _this2.bind(input, inputEvent, function (event) {
+            return _this3.bind(input, inputEvent, function (event) {
               return repaint(event.target);
             });
           });
@@ -7290,7 +7863,7 @@ typeof navigator === "object" && (function (global, factory) {
 
         if (browser.isWebkit) {
           Array.from(getElements.call(player, 'input[type="range"]')).forEach(function (element) {
-            _this2.bind(element, 'input', function (event) {
+            _this3.bind(element, 'input', function (event) {
               return controls.updateRangeFill.call(player, event.target);
             });
           });
@@ -7337,7 +7910,7 @@ typeof navigator === "object" && (function (global, factory) {
             toggleClass(elements.controls, config.classNames.noTransition, false);
           }, 0); // Delay a little more for mouse users
 
-          var delay = _this2.touch ? 3000 : 4000; // Clear timer
+          var delay = _this3.touch ? 3000 : 4000; // Clear timer
 
           clearTimeout(timers.controls); // Hide again after delay
 
@@ -7375,6 +7948,61 @@ typeof navigator === "object" && (function (global, factory) {
     return Listeners;
   }();
 
+  var quot = /"/g;
+  // B.2.3.2.1 CreateHTML(string, tag, attribute, value)
+  var createHTML = function (string, tag, attribute, value) {
+    var S = String(_defined(string));
+    var p1 = '<' + tag;
+    if (attribute !== '') p1 += ' ' + attribute + '="' + String(value).replace(quot, '&quot;') + '"';
+    return p1 + '>' + S + '</' + tag + '>';
+  };
+  var _stringHtml = function (NAME, exec) {
+    var O = {};
+    O[NAME] = exec(createHTML);
+    _export(_export.P + _export.F * _fails(function () {
+      var test = ''[NAME]('"');
+      return test !== test.toLowerCase() || test.split('"').length > 3;
+    }), 'String', O);
+  };
+
+  // B.2.3.10 String.prototype.link(url)
+  _stringHtml('link', function (createHTML) {
+    return function link(url) {
+      return createHTML(this, 'a', 'href', url);
+    };
+  });
+
+  var logo = {
+    setup: function setup() {
+      // add custom logo
+      if (this.config.logo && this.config.logo.url) {
+        // build logo container
+        var logoContainer = document.createElement('div');
+        toggleClass(logoContainer, this.config.classNames.logo, true); // image put into logo container if link not present
+
+        var imageContainer = logoContainer;
+
+        if (this.config.logo.link) {
+          // if logo.link setup, put image into a
+          var linkElement = document.createElement('a');
+          setAttributes(linkElement, {
+            href: this.config.logo.link
+          });
+          logoContainer.appendChild(linkElement);
+          imageContainer = linkElement;
+        } // build logo image
+
+
+        var logoElement = document.createElement('img');
+        setAttributes(logoElement, {
+          src: this.config.logo.url
+        });
+        imageContainer.appendChild(logoElement);
+        this.elements.container.appendChild(logoContainer);
+      }
+    }
+  };
+
   var dP$3 = _objectDp.f;
   var FProto = Function.prototype;
   var nameRE = /^\s*function ([^ (]*)/;
@@ -7404,9 +8032,7 @@ typeof navigator === "object" && (function (global, factory) {
 
   var loadjs_umd = createCommonjsModule(function (module, exports) {
   (function(root, factory) {
-    if (typeof undefined === 'function' && undefined.amd) {
-      undefined([], factory);
-    } else {
+    {
       module.exports = factory();
     }
   }(commonjsGlobal, function() {
@@ -9127,6 +9753,478 @@ typeof navigator === "object" && (function (global, factory) {
     return Ads;
   }();
 
+  var LectureNoteModel = function LectureNoteModel() {
+    _classCallCheck(this, LectureNoteModel);
+
+    this.showStatus = LectureNoteModel.ShowStatus.Edit;
+    this.noteStatus = LectureNoteModel.NoteStatus.Create;
+    this.time = 0;
+    this.note = '';
+  };
+  LectureNoteModel.ShowStatus = {
+    Edit: 'Edit',
+    Hide: 'Hide'
+  };
+  LectureNoteModel.NoteStatus = {
+    Create: 'Create',
+    Normal: 'Normal'
+  };
+  var AddLectureNoteButtonStatus = {
+    Enable: 'enable',
+    Disable: 'disable',
+    Hidden: 'hidden'
+  };
+
+  var LectureNote =
+  /*#__PURE__*/
+  function () {
+    function LectureNote(player) {
+      _classCallCheck(this, LectureNote);
+
+      this.player = player;
+      this.lectureNoteList = [];
+      this.lectureNoteContainer = null;
+      this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Hidden;
+      this.isLoadedLectureNote = false;
+      this.beforeAddLectureNotePlayerState = null;
+      this.beforeEditLectureNotePlayerState = null;
+    }
+
+    _createClass(LectureNote, [{
+      key: "setup",
+      value: function setup() {}
+    }, {
+      key: "clear",
+      value: function clear() {
+        this.lectureNoteList = [];
+        this.lectureNoteContainer = null;
+        this.isLoadedLectureNote = false;
+        this.hiddenLectureNote();
+      }
+    }, {
+      key: "enableLectureNote",
+      value: function enableLectureNote() {
+        this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Enable;
+        this.updateAddLectureNoteButtonUI();
+      }
+    }, {
+      key: "disableLectureNote",
+      value: function disableLectureNote() {
+        this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Disable;
+        this.updateAddLectureNoteButtonUI();
+      }
+    }, {
+      key: "hiddenLectureNote",
+      value: function hiddenLectureNote() {
+        this.addLectureNoteButtonStatus = AddLectureNoteButtonStatus.Hidden;
+        this.updateAddLectureNoteButtonUI();
+      }
+    }, {
+      key: "updateAddLectureNoteButtonUI",
+      value: function updateAddLectureNoteButtonUI() {
+        var addLectureNoteButton = getElement.call(this.player, '.plyr__add-lecture-note');
+
+        switch (this.addLectureNoteButtonStatus) {
+          case AddLectureNoteButtonStatus.Enable:
+            toggleClass.call(this.player, addLectureNoteButton, 'disable', false);
+            toggleClass.call(this.player, addLectureNoteButton, 'hidden', false);
+            toggleClass.call(this.player, '.plyr__lecture-note-container', 'hidden', false);
+            break;
+
+          case AddLectureNoteButtonStatus.Disable:
+            toggleClass.call(this.player, addLectureNoteButton, 'disable', true);
+            toggleClass.call(this.player, addLectureNoteButton, 'hidden', false);
+            toggleClass.call(this.player, '.plyr__lecture-note-container', 'hidden', false);
+            break;
+
+          case AddLectureNoteButtonStatus.Hidden:
+            toggleClass.call(this.player, addLectureNoteButton, 'disable', true);
+            toggleClass.call(this.player, addLectureNoteButton, 'hidden', true);
+            toggleClass.call(this.player, '.plyr__lecture-note-container', 'hidden', true);
+            break;
+
+          default:
+            break;
+        }
+      }
+    }, {
+      key: "setupUI",
+      value: function setupUI() {
+        if (this.player.supported.ui) {
+          var lectureNoteContainer = this.getContainer();
+
+          for (var i = 0; i < this.lectureNoteList.length; i += 1) {
+            var note = this.lectureNoteList[i];
+
+            if (!this.isLectureNoteExists(note._id)) {
+              var lectureNoteDOM = this.generateLectureNoteDOM(note);
+              lectureNoteContainer.appendChild(lectureNoteDOM);
+            }
+          }
+        }
+      }
+    }, {
+      key: "initLectureNote",
+      value: function initLectureNote(lectureNotes) {
+        if (this.player.supported.ui) {
+          this.lectureNoteList = lectureNotes;
+          this.isLoadedLectureNote = true;
+          this.setupUI();
+          this.enableLectureNote();
+        }
+      }
+    }, {
+      key: "addLectureNote",
+      value: function addLectureNote() {
+        if (this.player.playing) {
+          this.beforeAddLectureNotePlayerState = 'playing';
+        } else {
+          this.beforeAddLectureNotePlayerState = 'pause';
+        }
+
+        this.player.pause();
+        var time = Math.round(this.player.currentTime);
+        var note = this.getSameTimeLectureNote(time);
+
+        if (note) {
+          var lectureNoteContainer = getElement.call(this.player, ".lecture-note[data-id=\"".concat(note._id, "\"]"));
+
+          if (lectureNoteContainer) {
+            var contentContianer = lectureNoteContainer.querySelector('.lecture-note__content-container');
+
+            if (contentContianer) {
+              var clickEvent = new Event('click');
+              contentContianer.dispatchEvent(clickEvent);
+            }
+          }
+        } else {
+          this.disableLectureNote();
+          triggerEvent.call(this.player, this.player.media, 'lecturenotecreate', true, {
+            lectureNote: {
+              time: time
+            }
+          });
+        }
+      }
+    }, {
+      key: "completeAddLectureNote",
+      value: function completeAddLectureNote(lectureNote) {
+        this.enableLectureNote();
+        var newLectureNote = Object.assign({}, lectureNote, {
+          showStatus: LectureNoteModel.ShowStatus.Edit
+        });
+        this.lectureNoteList.push(newLectureNote);
+        var lectureNoteDOM = this.generateLectureNoteDOM(newLectureNote);
+        var lectureNoteContainer = this.getContainer();
+        lectureNoteContainer.appendChild(lectureNoteDOM);
+      }
+    }, {
+      key: "removeLectureNote",
+      value: function removeLectureNote(lectureNote) {
+        var lectureNoteContainer = getElement.call(this.player, "div[data-id=\"".concat(lectureNote._id, "\"]"));
+
+        if (lectureNoteContainer) {
+          lectureNoteContainer.parentElement.removeChild(lectureNoteContainer);
+
+          for (var i = 0; i < this.lectureNoteList.length; i += 1) {
+            if (this.lectureNoteList[i]._id === lectureNote._id) {
+              this.lectureNoteList.splice(i, 1);
+              return;
+            }
+          }
+        }
+      }
+    }, {
+      key: "hasSameTimeLectureNote",
+      value: function hasSameTimeLectureNote(time) {
+        for (var i = 0; i < this.lectureNoteList.length; i += 1) {
+          if (this.lectureNoteList[i].time === time) {
+            return true;
+          }
+        }
+
+        return false;
+      }
+    }, {
+      key: "getSameTimeLectureNote",
+      value: function getSameTimeLectureNote(time) {
+        for (var i = 0; i < this.lectureNoteList.length; i += 1) {
+          if (this.lectureNoteList[i].time === time) {
+            return this.lectureNoteList[i];
+          }
+        }
+
+        return null;
+      }
+      /**
+       * @private
+       * @return {null|*}
+       */
+
+    }, {
+      key: "getContainer",
+      value: function getContainer() {
+        if (this.lectureNoteContainer && !this.lectureNoteContainer.parentElement) {
+          this.lectureNoteContainer = null;
+        }
+
+        if (this.lectureNoteContainer === null) {
+          this.lectureNoteContainer = createElement('div', {
+            'class': 'plyr__lecture-note-container'
+          });
+          var progresses = getElement.call(this.player, this.player.config.selectors.progress);
+
+          if (progresses) {
+            progresses.appendChild(this.lectureNoteContainer);
+          }
+        }
+
+        return this.lectureNoteContainer;
+      }
+      /**
+       * @private
+       * @param lectureNoteId
+       * @return {boolean}
+       */
+
+    }, {
+      key: "isLectureNoteExists",
+      value: function isLectureNoteExists(lectureNoteId) {
+        return getElement.call(this.player, ".lecture-note[data-id=\"".concat(lectureNoteId, "\"]")) !== null;
+      }
+      /**
+       * @private
+       * @param lectureNote
+       */
+
+    }, {
+      key: "generateLectureNoteDOM",
+      value: function generateLectureNoteDOM(lectureNote) {
+        var _this = this;
+
+        var duration = this.player.duration;
+        var percent = lectureNote.time / duration * 100 || 0;
+        var cancelTimeout = null;
+        var lectureNoteContainer = createElement('div', {
+          'data-id': lectureNote._id,
+          class: 'lecture-note'
+        });
+        /* lecture-note__mark */
+
+        var className = 'lecture-note__mark';
+        var mark = createElement('span', {
+          class: className
+        });
+        lectureNoteContainer.appendChild(mark); // 點擊 mark 跳到對應的播放時間
+
+        mark.addEventListener('click', function (e) {
+          _this.player.currentTime = lectureNote.time;
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        /* lecture-note__mark */
+
+        /* lecture-note__content-container */
+
+        var status = lectureNote.showStatus;
+        var contentContainer = createElement('div', {
+          class: "lecture-note__content-container ".concat(status === LectureNoteModel.ShowStatus.Edit ? ' lecture-note__content-container--edit' : '')
+        });
+        lectureNoteContainer.appendChild(contentContainer);
+        /* lecture-note__content-container */
+
+        /* lecture-note__content-textarea */
+
+        var contentTextarea = createElement('textarea', {
+          class: 'lecture-note__content-textarea',
+          placeholder: '新增筆記 (限 50 字)',
+          maxLength: 50,
+          rows: 1
+        });
+        contentTextarea.value = lectureNote.note || '';
+        contentContainer.appendChild(contentTextarea);
+        /* lecture-note__content-textarea */
+
+        /* lecture-note__content-show-text */
+
+        var contentShowText = createElement('span', {
+          class: 'lecture-note__content-show-text'
+        });
+        contentShowText.innerHTML = lectureNote.note;
+        contentContainer.appendChild(contentShowText);
+        /* lecture-note__content-show-text */
+
+        /* lecture-note__trash-icon-wrapper */
+
+        var trashIconWrapper = createElement('span', {
+          class: 'lecture-note__trash-icon-wrapper'
+        });
+        var trashIcon = controls.createIcon.call(this.player, 'trash');
+        trashIconWrapper.appendChild(trashIcon);
+        contentContainer.appendChild(trashIconWrapper); // 點擊垃圾桶 icon 刪除 lecturenote
+
+        trashIconWrapper.addEventListener('click', function (e) {
+          triggerEvent.call(_this.player, _this.player.media, 'lecturenotedelete', true, {
+            lectureNote: lectureNote
+          });
+
+          _this.removeLectureNote(lectureNote);
+        });
+        /* lecture-note__trash-icon-wrapper */
+        // 點擊 container 開啟編輯模式
+
+        contentContainer.addEventListener('click', function (e) {
+          if (lectureNote.showStatus !== LectureNoteModel.ShowStatus.Edit) {
+            if (_this.player.playing) {
+              _this.beforeEditLectureNotePlayerState = 'playing';
+            } else {
+              _this.beforeEditLectureNotePlayerState = 'pause';
+            }
+
+            _this.player.pause();
+
+            toggleClass(contentContainer, 'lecture-note__content-container--edit', true);
+            lectureNote.showStatus = LectureNoteModel.ShowStatus.Edit;
+            contentTextarea.style.height = 'auto';
+            contentTextarea.style.height = "".concat(contentTextarea.scrollHeight, "px");
+            contentTextarea.focus();
+          }
+        });
+        setTimeout(function () {
+          contentTextarea.focus();
+        }, 50);
+        contentTextarea.addEventListener('keyup', function () {
+          contentTextarea.style.height = 'auto';
+          contentTextarea.style.height = "".concat(contentTextarea.scrollHeight, "px");
+        });
+        var isInComposition = false;
+        contentTextarea.addEventListener('compositionstart', function (e) {
+          isInComposition = true;
+        });
+        contentTextarea.addEventListener('compositionend', function (e) {
+          setTimeout(function () {
+            isInComposition = false;
+          }, 10);
+        });
+        contentTextarea.addEventListener('keydown', function (e) {
+          if (!isInComposition && e.key === 'Enter') {
+            lectureNote.note = contentTextarea.value;
+            contentShowText.innerHTML = lectureNote.note;
+            toggleClass(contentContainer, 'lecture-note__content-container--edit', false);
+            lectureNote.showStatus = LectureNoteModel.ShowStatus.Hide;
+            toggleClass(lectureNoteContainer, 'hover', true);
+            cancelTimeout = setTimeout(function () {
+              toggleClass(lectureNoteContainer, 'hover', false);
+            }, 1000);
+            triggerEvent.call(_this.player, _this.player.media, 'lecturenoteupdate', true, {
+              lectureNote: lectureNote
+            });
+            console.group('keydown enter');
+            console.log(_this.beforeAddLectureNotePlayerState, _this.beforeEditLectureNotePlayerState);
+            console.groupEnd();
+
+            try {
+              if (_this.beforeAddLectureNotePlayerState) {
+                if (_this.beforeAddLectureNotePlayerState === 'playing') {
+                  _this.player.play();
+                }
+
+                _this.beforeAddLectureNotePlayerState = null;
+              }
+
+              if (_this.beforeEditLectureNotePlayerState) {
+                if (_this.beforeEditLectureNotePlayerState === 'playing') {
+                  _this.player.play();
+                }
+
+                _this.beforeEditLectureNotePlayerState = null;
+              }
+            } catch (e) {// ignore
+            }
+
+            e.preventDefault();
+          }
+
+          if (e.key === 'Escape') {
+            contentTextarea.value = lectureNote.note;
+            toggleClass(contentContainer, 'lecture-note__content-container--edit', false);
+            lectureNote.showStatus = LectureNoteModel.ShowStatus.Hide;
+          }
+        });
+        contentTextarea.addEventListener('blur', function (e) {
+          lectureNote.note = contentTextarea.value;
+          contentShowText.innerHTML = lectureNote.note;
+          toggleClass(contentContainer, 'lecture-note__content-container--edit', false);
+          lectureNote.showStatus = LectureNoteModel.ShowStatus.Hide;
+          toggleClass(lectureNoteContainer, 'hover', true);
+          cancelTimeout = setTimeout(function () {
+            toggleClass(lectureNoteContainer, 'hover', false);
+          }, 1000);
+          triggerEvent.call(_this.player, _this.player.media, 'lecturenoteupdate', true, {
+            lectureNote: lectureNote
+          });
+          e.preventDefault();
+        });
+        mark.addEventListener('mouseenter', function (e) {
+          if (cancelTimeout) {
+            clearTimeout(cancelTimeout);
+            cancelTimeout = null;
+          }
+
+          toggleClass(contentContainer, 'lecture-note__content-container--show', true);
+
+          var container = _this.getContainer();
+
+          var leftLimit = (container.offsetWidth - 200) / container.offsetWidth * 100 || 0;
+
+          if (percent > leftLimit) {
+            toggleClass(contentContainer, 'lecture-note__content-container--near-end', true);
+          } else {
+            toggleClass(contentContainer, 'lecture-note__content-container--near-end', false);
+          }
+
+          e.preventDefault();
+        });
+        mark.addEventListener('mouseleave', function (e) {
+          cancelTimeout = setTimeout(function () {
+            toggleClass(contentContainer, 'lecture-note__content-container--show', false);
+          }, 500);
+          e.preventDefault();
+        });
+        contentContainer.addEventListener('mouseenter', function (e) {
+          if (cancelTimeout) {
+            clearTimeout(cancelTimeout);
+            cancelTimeout = null;
+          }
+
+          toggleClass(contentContainer, 'lecture-note__content-container--show', true);
+
+          var container = _this.getContainer();
+
+          var leftLimit = (container.offsetWidth - 200) / container.offsetWidth * 100 || 0;
+
+          if (percent > leftLimit) {
+            toggleClass(contentContainer, 'lecture-note__content-container--near-end', true);
+          } else {
+            toggleClass(contentContainer, 'lecture-note__content-container--near-end', false);
+          }
+
+          e.preventDefault();
+        });
+        contentContainer.addEventListener('mouseleave', function (e) {
+          cancelTimeout = setTimeout(function () {
+            toggleClass(contentContainer, 'lecture-note__content-container--show', false);
+          }, 500);
+          e.preventDefault();
+        });
+        lectureNoteContainer.style.left = "calc(".concat(percent, "%)");
+        return lectureNoteContainer;
+      }
+    }]);
+
+    return LectureNote;
+  }();
+
   var source = {
     // Add elements to HTML5 media (source, tracks, etc)
     insertElements: function insertElements(type, attributes) {
@@ -9153,19 +10251,26 @@ typeof navigator === "object" && (function (global, factory) {
       } // Cancel current network requests
 
 
-      html5.cancelRequests.call(this); // Destroy instance and re-setup
+      html5.cancelRequests.call(this);
+      var tracks = Array.from(this.media.querySelectorAll('track'));
+      removeElement(tracks);
+      this.captions.currentTrack = -1; // Destroy instance and re-setup
 
       this.destroy.call(this, function () {
-        // Reset quality options
+        _this2.lectureNote.clear(); // Reset quality options
+
+
         _this2.options.quality = []; // Remove elements
 
-        removeElement(_this2.media);
-        _this2.media = null; // Reset class name
+        removeElement(_this2.media); // Reset class name
 
         if (is$1.element(_this2.elements.container)) {
           _this2.elements.container.removeAttribute('class');
-        } // Set the type and provider
+        } // retain old provider and type
 
+
+        var prevType = _this2.type;
+        var prevProvider = _this2.provider; // Set the type and provider
 
         var sources = input.sources,
             type = input.type;
@@ -9184,10 +10289,21 @@ typeof navigator === "object" && (function (global, factory) {
           provider: provider,
           type: type,
           // Check for support
-          supported: support.check(type, provider, _this2.config.playsinline),
-          // Create new element
-          media: createElement(tagName, attributes)
-        }); // Inject the new element
+          supported: support.check(type, provider, _this2.config.playsinline)
+        });
+
+        if (prevType === type && prevProvider === provider && provider === providers.html5) {
+          /**
+           * if provider is html5 and setting is same as prev source,
+           * retain media element (because ios system has limited resource,
+           * can't create many video resource)
+           */
+          setAttributes(_this2.media, attributes);
+        } else {
+          _this2.media = null;
+          _this2.media = createElement(tagName, attributes);
+        } // Inject the new element
+
 
         _this2.elements.container.appendChild(_this2.media); // Autoplay the new source?
 
@@ -9224,21 +10340,41 @@ typeof navigator === "object" && (function (global, factory) {
         } // Restore class hook
 
 
-        ui.addStyleHook.call(_this2); // Set new sources for html5
+        ui.addStyleHook.call(_this2);
+        ui.addStylehookToFullscreenContainer.call(_this2); // Set new sources for html5
 
         if (_this2.isHTML5) {
           source.insertElements.call(_this2, 'source', sources);
+
+          _this2.media.setAttribute('src', sources[0].src);
         } // Set video title
 
 
         _this2.config.title = input.title; // Set up from scratch
 
-        media.setup.call(_this2); // HTML5 stuff
+        media.setup.call(_this2); // restore video quality
+
+        var quality = _this2.storage.get('quality');
+
+        if (is$1.number(quality)) {
+          _this2.media.quality = quality;
+        }
+
+        var defaultCaption = null; // HTML5 stuff
 
         if (_this2.isHTML5) {
           // Setup captions
           if ('tracks' in input) {
             source.insertElements.call(_this2, 'track', input.tracks);
+            var defaultTracks = input.tracks.filter(function (track) {
+              return track.default;
+            });
+
+            if (defaultTracks.length > 0) {
+              defaultCaption = defaultTracks[0].srclang;
+            }
+
+            captions.update.call(_this2);
           } // Load HTML5 sources
 
 
@@ -9253,6 +10389,17 @@ typeof navigator === "object" && (function (global, factory) {
 
 
         _this2.fullscreen.update();
+
+        captions.setDefault.call(_this2, defaultCaption);
+
+        var speed = _this2.storage.get('speed');
+
+        if (is$1.number(speed)) {
+          _this2.speed = speed;
+          controls.updateSetting.call(_this2, 'speed', speed);
+        }
+
+        _this2.lectureNote.setupUI();
       }, true);
     }
   };
@@ -9475,7 +10622,8 @@ typeof navigator === "object" && (function (global, factory) {
       } // Add style hook
 
 
-      ui.addStyleHook.call(this); // Setup media
+      ui.addStyleHook.call(this);
+      ui.addStylehookToFullscreenContainer.call(this); // Setup media
 
       media.setup.call(this); // Listen for events if debugging
 
@@ -9489,8 +10637,9 @@ typeof navigator === "object" && (function (global, factory) {
 
       if (this.isHTML5 || this.isEmbed && !this.supported.ui) {
         ui.build.call(this);
-      } // Container listeners
+      }
 
+      logo.setup.call(this); // Container listeners
 
       this.listeners.container(); // Global listeners
 
@@ -9500,8 +10649,9 @@ typeof navigator === "object" && (function (global, factory) {
 
       if (this.config.ads.enabled) {
         this.ads = new Ads(this);
-      } // Autoplay if required
+      }
 
+      this.lectureNote = new LectureNote(this); // Autoplay if required
 
       if (this.config.autoplay) {
         this.play();
@@ -9635,11 +10785,6 @@ typeof navigator === "object" && (function (global, factory) {
       value: function decreaseVolume(step) {
         this.increaseVolume(-step);
       }
-      /**
-       * Set muted state
-       * @param {boolean} mute
-       */
-
     }, {
       key: "toggleCaptions",
 
@@ -10030,6 +11175,19 @@ typeof navigator === "object" && (function (global, factory) {
         return Number(this.media.volume);
       }
     }, {
+      key: "fullscreenContainer",
+      set: function set(container) {
+        if (is$1.element(container)) {
+          this.config.fullscreenContainer = container;
+          ui.addStylehookToFullscreenContainer.call(this);
+        }
+      }
+      /**
+       * Set muted state
+       * @param {boolean} mute
+       */
+
+    }, {
       key: "muted",
       set: function set(mute) {
         var toggle = mute; // Load muted state from storage
@@ -10139,14 +11297,11 @@ typeof navigator === "object" && (function (global, factory) {
         }
 
         var quality = [!is$1.empty(input) && Number(input), this.storage.get('quality'), config.selected, config.default].find(is$1.number);
-        var updateStorage = true;
 
         if (!options.includes(quality)) {
           var value = closest(options, quality);
           this.debug.warn("Unsupported quality option: ".concat(quality, ", using ").concat(value, " instead"));
-          quality = value; // Don't update storage if quality is not supported
-
-          updateStorage = false;
+          quality = value;
         } // Update config
 
 
@@ -10154,11 +11309,9 @@ typeof navigator === "object" && (function (global, factory) {
 
         this.media.quality = quality; // Save to storage
 
-        if (updateStorage) {
-          this.storage.set({
-            quality: quality
-          });
-        }
+        this.storage.set({
+          quality: quality
+        });
       }
       /**
        * Get current quality level
@@ -10310,6 +11463,18 @@ typeof navigator === "object" && (function (global, factory) {
             currentTrack = _this$captions.currentTrack;
         return toggled ? currentTrack : -1;
       }
+    }, {
+      key: "captionPosition",
+      set: function set(input) {
+        this.captions.position = input;
+        this.storage.set({
+          captionPosition: input
+        });
+        captions.setPosition.call(this, this.captions.position);
+      },
+      get: function get() {
+        return this.storage.get('captionPosition') || this.config.captions.position;
+      }
       /**
        * Set the wanted language for captions
        * Since tracks can be added later it won't update the actual caption track until there is a matching track
@@ -10426,6 +11591,7 @@ typeof navigator === "object" && (function (global, factory) {
   }();
 
   Plyr.defaults = cloneDeep(defaults);
+  Plyr.hahow = hahow;
 
   // ==========================================================================
 

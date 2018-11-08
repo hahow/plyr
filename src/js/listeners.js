@@ -69,7 +69,7 @@ class Listeners {
             }
 
             // Which keycodes should we prevent default
-            const preventDefault = [32, 37, 38, 39, 40, 48, 49, 50, 51, 52, 53, 54, 56, 57, 67, 70, 73, 75, 76, 77, 79];
+            const preventDefault = [27, 32, 37, 38, 39, 40, 48, 49, 50, 51, 52, 53, 54, 56, 57, 67, 70, 73, 75, 76, 77, 79];
 
             // If the code is found prevent default (e.g. prevent scrolling for arrows)
             if (preventDefault.includes(code)) {
@@ -78,6 +78,12 @@ class Listeners {
             }
 
             switch (code) {
+                case 27:
+                    // esc escape fullscreen mode
+                    if (this.player.fullscreen.enabled) {
+                        this.player.fullscreen.exit();
+                    }
+                    break;
                 case 48:
                 case 49:
                 case 50:
@@ -144,6 +150,13 @@ class Listeners {
                 case 76:
                     // L key
                     player.loop = !player.loop;
+                    break;
+
+                case 78:
+                    // N key
+                    if (this.player.lectureNote && this.player.lectureNote.isLoadedLectureNote && this.player.lectureNote.addLectureNoteButtonStatus === 'enable') {
+                        this.player.lectureNote.addLectureNote();
+                    }
                     break;
 
                     /* case 73:
@@ -366,10 +379,10 @@ class Listeners {
             // Re-fetch the wrapper
             const wrapper = getElement.call(player, `.${player.config.classNames.video}`);
 
-            // Bail if there's no wrapper (this should never happen)
-            if (!is.element(wrapper)) {
-                return;
-            }
+            // Loading state
+            on.call(this.player, this.player.media, 'waiting canplay seeked playing', event =>
+                ui.checkLoading.call(this.player, event),
+            );
 
             // On click play, pause or restart
             on.call(player, elements.container, 'click', event => {
@@ -530,6 +543,16 @@ class Listeners {
                 triggerEvent.call(player, player.media, 'download');
             },
             'download',
+        );
+
+        // zoom toggle
+        this.bind(
+            elements.buttons.zoom,
+            'click',
+            () => {
+                player.fullscreen.toggleZoom();
+            },
+            'zoom',
         );
 
         // Fullscreen toggle
