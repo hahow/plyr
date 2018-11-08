@@ -574,12 +574,15 @@ typeof navigator === "object" && (function (global, factory) {
   } // Element matches selector
 
   function matches(element, selector) {
+    var prototype = {
+      Element: Element
+    };
 
     function match() {
       return Array.from(document.querySelectorAll(selector)).includes(this);
     }
 
-    var matches = match;
+    var matches = prototype.matches || prototype.webkitMatchesSelector || prototype.mozMatchesSelector || prototype.msMatchesSelector || match;
     return matches.call(element, selector);
   } // Find all elements
 
@@ -5314,7 +5317,9 @@ typeof navigator === "object" && (function (global, factory) {
 
   var loadjs_umd = createCommonjsModule(function (module, exports) {
   (function(root, factory) {
-    {
+    if (typeof undefined === 'function' && undefined.amd) {
+      undefined([], factory);
+    } else {
       module.exports = factory();
     }
   }(commonjsGlobal, function() {
