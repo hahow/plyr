@@ -285,6 +285,15 @@ export default class LectureNote {
         });
         /* lecture-note__trash-icon-wrapper */
 
+        // 修正產生 DOM 時，靠近影片結束時，筆記會跑版的問題
+        const container = this.getContainer();
+        const leftLimit = ((container.offsetWidth - 200) / container.offsetWidth) * 100 || 0;
+        if (percent > leftLimit) {
+            toggleClass(contentContainer, 'lecture-note__content-container--near-end', true);
+        } else {
+            toggleClass(contentContainer, 'lecture-note__content-container--near-end', false);
+        }
+
         // 點擊 container 開啟編輯模式
         contentContainer.addEventListener('click', (e) => {
             if (lectureNote.showStatus !== LectureNoteModel.ShowStatus.Edit) {
