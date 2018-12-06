@@ -11,6 +11,7 @@ import support from './support';
 import ui from './ui';
 import { createElement, insertElement, removeElement, setAttributes } from './utils/elements';
 import is from './utils/is';
+import browser from './utils/browser';
 import { getDeep } from './utils/objects';
 
 const source = {
@@ -148,6 +149,11 @@ const source = {
                         const defaultTracks = input.tracks.filter(track => track.default);
                         if (defaultTracks.length > 0 ){
                             defaultCaption = defaultTracks[0].srclang;
+                        }
+                        if(this.media.textTracks && browser.isEdge){
+                            for(var i = 0; i< this.media.textTracks.length; i++){
+                                this.media.textTracks[i].mode = 'hidden';
+                            }
                         }
                         captions.update.call(this);
                     }

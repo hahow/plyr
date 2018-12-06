@@ -6066,7 +6066,8 @@ typeof navigator === "object" && (function (global, factory) {
 	    isIE: /* @cc_on!@ */!!document.documentMode,
 	    isWebkit: 'WebkitAppearance' in document.documentElement.style && !/Edge/.test(navigator.userAgent),
 	    isIPhone: /(iPhone|iPod)/gi.test(navigator.platform),
-	    isIos: /(iPad|iPhone|iPod)/gi.test(navigator.platform)
+	    isIos: /(iPad|iPhone|iPod)/gi.test(navigator.platform),
+	    isEdge: /Edge\/\d./i.test(navigator.userAgent)
 	};
 
 	// ==========================================================================
@@ -8554,7 +8555,9 @@ typeof navigator === "object" && (function (global, factory) {
 	        if (this.captions.currentTrack !== index) {
 	            this.captions.currentTrack = index;
 	            var track = tracks[index];
-	            track.mode = 'showing';
+	            if (!browser.isEdge) {
+	                track.mode = 'showing';
+	            }
 
 	            var _ref = track || {},
 	                language = _ref.language;
@@ -13191,6 +13194,15 @@ typeof navigator === "object" && (function (global, factory) {
 	            });
 	            /* lecture-note__trash-icon-wrapper */
 
+	            // 修正產生 DOM 時，靠近影片結束時，筆記會跑版的問題
+	            var container = this.getContainer();
+	            var leftLimit = (container.offsetWidth - 200) / container.offsetWidth * 100 || 0;
+	            if (percent > leftLimit) {
+	                toggleClass(contentContainer, 'lecture-note__content-container--near-end', true);
+	            } else {
+	                toggleClass(contentContainer, 'lecture-note__content-container--near-end', false);
+	            }
+
 	            // 點擊 container 開啟編輯模式
 	            contentContainer.addEventListener('click', function (e) {
 	                if (lectureNote.showStatus !== LectureNoteModel.ShowStatus.Edit) {
@@ -13488,6 +13500,11 @@ typeof navigator === "object" && (function (global, factory) {
 	                    });
 	                    if (defaultTracks.length > 0) {
 	                        defaultCaption = defaultTracks[0].srclang;
+	                    }
+	                    if (_this2.media.textTracks && browser.isEdge) {
+	                        for (var i = 0; i < _this2.media.textTracks.length; i++) {
+	                            _this2.media.textTracks[i].mode = 'hidden';
+	                        }
 	                    }
 	                    captions.update.call(_this2);
 	                }

@@ -8,6 +8,7 @@ const browser = {
     isWebkit: 'WebkitAppearance' in document.documentElement.style && !/Edge/.test(navigator.userAgent),
     isIPhone: /(iPhone|iPod)/gi.test(navigator.platform),
     isIos: /(iPad|iPhone|iPod)/gi.test(navigator.platform),
+    isEdge: /Edge\/\d./i.test(navigator.userAgent),
 };
 
 export default browser;
