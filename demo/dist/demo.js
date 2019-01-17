@@ -1833,7 +1833,6 @@ typeof navigator === "object" && (function () {
 	  };
 	  this._fetchDefaults = {
 	    method: 'POST',
-	    keepalive: true,
 	    // Despite all stars in the sky saying that Edge supports old draft syntax, aka 'never', 'always', 'origin' and 'default
 	    // https://caniuse.com/#feat=referrer-policy
 	    // It doesn't. And it throw exception instead of ignoring this parameter...
@@ -1874,7 +1873,7 @@ typeof navigator === "object" && (function () {
 	  // webpack (using a build step causes webpack #1617). Grunt verifies that
 	  // this value matches package.json during build.
 	  //   See: https://github.com/getsentry/raven-js/issues/465
-	  VERSION: '3.26.4',
+	  VERSION: '3.27.0',
 
 	  debug: false,
 
@@ -2612,7 +2611,7 @@ typeof navigator === "object" && (function () {
 	    )
 	      return;
 
-	    options = Object.assign(
+	    options = objectMerge$1(
 	      {
 	        eventId: this.lastEventId(),
 	        dsn: this._dsn,

@@ -376,11 +376,6 @@ class Listeners {
                 wrapper.isAlreadyRegisterEventListener = true;
                 // On click play, pause ore restart
                 on.call(this.player, wrapper, 'click', () => {
-                    // Touch devices will just show controls (if we're hiding controls)
-                    if (this.player.config.hideControls && this.player.touch && !this.player.paused) {
-                        return;
-                    }
-
                     if (this.player.paused) {
                         this.player.play();
                     } else if (this.player.ended) {

@@ -562,13 +562,12 @@ typeof navigator === "object" && (function (global, factory) {
 
     // Element matches selector
     function matches(element, selector) {
-        var prototype = { Element: Element };
 
         function match() {
             return Array.from(document.querySelectorAll(selector)).includes(this);
         }
 
-        var matches = prototype.matches || prototype.webkitMatchesSelector || prototype.mozMatchesSelector || prototype.msMatchesSelector || match;
+        var matches = match;
 
         return matches.call(element, selector);
     }
@@ -5202,11 +5201,6 @@ typeof navigator === "object" && (function (global, factory) {
                         wrapper.isAlreadyRegisterEventListener = true;
                         // On click play, pause ore restart
                         on.call(this.player, wrapper, 'click', function () {
-                            // Touch devices will just show controls (if we're hiding controls)
-                            if (_this3.player.config.hideControls && _this3.player.touch && !_this3.player.paused) {
-                                return;
-                            }
-
                             if (_this3.player.paused) {
                                 _this3.player.play();
                             } else if (_this3.player.ended) {
@@ -5546,9 +5540,7 @@ typeof navigator === "object" && (function (global, factory) {
 
     var loadjs_umd = createCommonjsModule(function (module, exports) {
     (function(root, factory) {
-      if (typeof undefined === 'function' && undefined.amd) {
-        undefined([], factory);
-      } else {
+      {
         module.exports = factory();
       }
     }(commonjsGlobal, function() {
@@ -5690,8 +5682,8 @@ typeof navigator === "object" && (function (global, factory) {
             if (!e.sheet.cssText.length) result = 'e';
           } catch (x) {
             // sheets objects created from load errors don't allow access to
-            // `cssText`
-            result = 'e';
+            // `cssText` (unless error is Code:18 SecurityError)
+            if (x.code != 18) result = 'e';
           }
         }
 
